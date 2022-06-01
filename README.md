@@ -60,12 +60,14 @@ module load Rstats/3.5.1
 R
 ```
 ### Install all R packages needed
+```
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
 BiocManager::install("SNPRelate")
 install.packages("tidyverse")
 install.packages("ggplot")
+```
 ## INPUT: fastq 
 
 Pair-end sequencing data, R1.fq and R2.fq files per samples
@@ -134,7 +136,7 @@ The alignment of DNA resequencing to a reference genome could take 9 hours
 bwa mem -t 30 -M -R '@RG\tID:@A00672:51:HWJMYDSXY\tSM:CTAGCGCT' $ref/CorHaw 01.180603.B03.S1.1.fastq.gz 01.180603.B03.S1.2.fastq.gz > sample.CTAGCGCT.aln.sam
 
 ```
-After alignment, need to sort, index, and compress sam to bam.
+After alignment, need to sort, index, and combpress sam to bam.
 ### Run the modules or environment
 ```
 conda activate ANGSD
@@ -296,10 +298,10 @@ vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --window-pi-step 1000 --out 
 
 ### Prune SNPs every 10,000kb to select unlinked for PCA and other analyses
 ```
-vcftools --vcf samples_Catharus_passed_snps-sites.vcf --thin 10000 --recode --recode-INFO-all --out Catharus_passed_snps_10Kkb.vcf
+vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay-UNPLACED-10Kkb.vcf
 ```
 From this vcf file it is possible to create many formats 
 ### Create plink format for admixture program and others
 ```
-vcftools --vcf Catharus_passed_snps_10Kkb.vcf.recode.vcf --plink 
+vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink 
 ```
