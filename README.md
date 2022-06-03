@@ -37,13 +37,13 @@ conda create --name ANGSD
 ```
 conda activate ANGSD
 conda install -c bioconda angsd
-conda install -c bioconda/label/cf201901 bcftools 
 conda install -c bioconda samtools openssl=1.0
+conda install -c bioconda/label/cf201901 bcftools 
 conda install -c bioconda picard
-conda install -c bioconda pgdspider 
-
+conda install -c bioconda pgdspider
+conda install -c genomedk psmc 
 ```
-### install glactools from : `https://github.com/grenaud/glactools` in your $WORK directory
+### Install glactools from : `https://github.com/grenaud/glactools` in your $WORK directory
 
 ```
 module load gcc/9.1.0
@@ -66,7 +66,17 @@ if (!require("BiocManager", quietly = TRUE))
 
 BiocManager::install("SNPRelate")
 install.packages("tidyverse")
-install.packages("ggplot")
+install.packages("ggplot2")
+BiocManager::install("gdsfmt")
+install.packages("devtools")
+install.packages("data.table")
+install.packages("qqman")
+install.packages("filesstrings")
+install.packages("cowplot")
+install.packages("GenWin")
+install.packages("reshape2")
+install.packages("gghighlight")
+
 ```
 ## INPUT: fastq 
 
@@ -151,8 +161,11 @@ All in a loop and run it in a job. See example `Job-sam-index-sort-bam-1.sh`. Th
 ```
 for sample in *.aln.sam;do picard -Xmx128g -XX:ParallelGCThreads=32 SortSam -I $sample -O $sample.sort.bam SORT_ORDER=coordinate CREATE_INDEX=true;done
 ```
-### Check if your bam file is really sorted
+### Check if your bam file is really sorted with samtools
+#### Load samtools first
+
 ```
+module load samtools/1.5
 samtools view -h sample.TGCGAGAC.aln.sam.sort.bam.dedup.bam | head
 ```
 
@@ -168,7 +181,7 @@ Obtain basic stats of the alignments with samtools, total reads mapped and unmap
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam
 samtools view -c -f 4 sample.TGCGAGAC.aln.sam.sort.bam
-samtools stats sample.TGCGAGAC.aln.sam.sort.bam > depth-TGCGAGAC.txt
+samtools stats sample.TGCGAGAC.aln.sam.sort.bam
 ```
 ### Explore the alignments
 Make index for reference
@@ -209,7 +222,12 @@ samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep -w -f AUTOS
 ```
 for file in *.aln.sam.sort.bam ; do samtools idxstats $file | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b $file > ./AUTOSOMES-CHR/$file.AUTOSOMES.bam; done
 ```
-## GENERATE THE GENOTYPES BY LIKELIHOODS
+#### Need to sort and index the new bam splited files for downstream analysis. See job example `Job-sort-index.sh`
+```
+for i in *bam; do samtools sort $i -o $i.sorted.bam;done
+for i in *sorted.bam; do samtools index $i;done
+```
+## Generate the genotypes by likelihoods
  
 We are going to perform a genotype likelihoods in a fast way using ANGSD. This method is the fastes and best approach for variable x coverage in samples. There is some information that will not beeing recovered in the final vcf file with this method. Mapping quality of reads needs to be filtering during the ANGSD run.
 
@@ -243,11 +261,12 @@ REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fai
 module load gcc/9.1.0
 ```
 ##### step 1
-Keep the same name for all files
+Keep the same name for all files.
+Make postion file .pos
 ```
-make postion file .pos
 zcat genolike1-greenjay.mafs.gz | cut -f 1,2 > genolike1-greenjay.mafs.pos
 gzip genolike1-greenjay.mafs.pos
+mv genolike1-greenjay.mafs.pos.gz > genolike1-greenjay.pos.gz
 ```
 ##### step 2
 Creat glf file format
@@ -305,3 +324,95 @@ From this vcf file it is possible to create many formats
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink 
 ```
+### Creat format for Bayescan
+We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
+### Creat format for Baypass
+### Creat format for SNPrelate in R. 
+See Job `PCA-SNPrelate-example.R` and  R code/script to run PCA, kinship and other analyses
+
+## Coalescent inferences of population demography
+PSMC takes the consensus fastq file, and infers the history of population sizes. Starting from mapped reads, the first step is to produce a consensus sequence in FASTQ format. We will use the samtools/bcftools, following the methods described in the paper of Palkopoulou et al., 2015, with defould parametres for model fitting.
+
+#### Load the module samtools 1.5. 
+Dont use a higher version of samtools. Load the reference genome.
+
+```
+module load intel/17.0.4
+module load samtools/1.5
+GB=/scratch/08752/ftermig/ref-genome/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
+```
+#### make your list of chromosomes an array
+Check if the array is working by making a small loop into the array
+```
+mapfile -t CHR < unplaced-scaffold.txt
+
+for str in ${CHR[@]}; do
+  echo $str
+done
+```
+#### Produce a consensus sequences per chromosome in one sample
+If you want to run all samples make a loop in a job. See job example `Job-all-mpileup.sh`
+```
+for str in ${CHR[@]}; do
+samtools mpileup -Q 30 -q 20 -u -v \
+-f $GB -r $str sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.bam.sorted.bam |  
+bcftools call -c |  
+vcfutils.pl vcf2fq -d 5 -D 34 -Q 30 > sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.bam.$str.fq
+done
+```
+#### Concatenate all concensus sequences 
+All chromosome/scaffold in one fastq per sample
+```
+cat sample.TGCGAGAC*JAJGSY0*.fq > sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq
+```
+If one sample works well, try to make another loop to create the concensus sequences per chromosome and per sample
+#### Create format for PSMC
+If you want to run all samples make a loop in a job. See job example ``
+```
+fq2psmcfa sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq > sample.TGCGAGAC.UNPLACED.consensus.psmcfa
+```
+#### Run PSMC
+Run the models in one sample. If you want to run all samples make a loop in a job. See job example ``
+```
+psmc -p "4+25*2+4+6" -o sample.TGCGAGAC.UNPLACED.consensus.psmc sample.TGCGAGAC.UNPLACED.consensus.psmcfa
+```
+#### Make the plot
+With the generated data its possible to make your own costume plot using -R flag. We are going to try the plot that comes with PSMC program and generate the data for a costum plot in R using the generated file with extension ".0.txt." See R code/script 'PSMC-costum-plot.R' for costum plots of all individuals in one plot.
+```
+psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGAC.UNPLACED.consensus.psmc
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
