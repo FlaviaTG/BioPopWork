@@ -93,7 +93,7 @@ In a loop and in a slurm job see bash script for an example `Job-FastqC.sh`. Thi
 ```
 for i in *.fastq.gz; do fastqc $i -o ./QUALITY-reads;done
 ```
-## Alignment
+## 1) Alignment
 Example of BWA alignment on one individual. 
 - Sequencing plataform ID: @D00742:CCJ7KANXX
 - Individual barcode: ACGGTC. This individual barcode will be the ID of that sample on the final .sam .bam file
@@ -203,7 +203,7 @@ samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 - upper case: denotes a base that did not match the reference on the forward strand
 - lower case: denotes a base that did not match the reference on the reverse strand
 
-## Prep-alignments for downstream analyses
+## 2) Prep-alignments for downstream analyses
 ### Make the list of autosomes and sex chromosomes and unplaced scaffolds.
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'JAJGSY' >> unplaced-scaffold.txt
@@ -218,11 +218,13 @@ Try one and then make folders and a loop to split the bam files into different g
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b sample.TGCGAGAC.aln.sam.sort.bam > ./AUTOSOMES-CHR/sample.TGCGAGAC.aln.sam.sort.bam.AUTOSOMES.bam
 ```
-### In a loop could take 4 hours, run a job and see example `Job-samtools-split.sh`
+### In a loop could take 4 hours.
+Run it in a job. See example `Job-samtools-split.sh`
 ```
 for file in *.aln.sam.sort.bam ; do samtools idxstats $file | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b $file > ./AUTOSOMES-CHR/$file.AUTOSOMES.bam; done
 ```
-#### Need to sort and index the new bam splited files for downstream analysis. See job example `Job-sort-index.sh`
+#### Need to sort and index 
+Every time you create a new bam it has to be indexed and sorted for downstream analysis. See job example `Job-sort-index.sh`
 ```
 for i in *bam; do samtools sort $i -o $i.sorted.bam;done
 for i in *sorted.bam; do samtools index $i;done
@@ -235,7 +237,8 @@ We are going to perform a genotype likelihoods in a fast way using ANGSD. This m
 ```
 conda activate ANGSD
 ```
-### Creat a list file of your bam files for each sample with the path. See example in `bam-list-unplaced.txt`
+### Creat a list file of your bam 
+The list need to have the files for each sample with the path. See example in `bam-list-unplaced.txt`
 This is an old version GATK like genotype likelihoods by using the following flags
 - -doGlf 2: binary glf
 - -doMajorMinor 1: Infer major and minor from GL
@@ -255,33 +258,33 @@ The output is a beagle format, positions and major allele frequencies. The beagl
 This vcf format is simplified, and not much SNP filter can be done after. That step was done during the genotype likelihoods calculations.
 Run each step one by one. Check that the output file from one step needs to be the input of the next step.
 #### load paths to reference and to  glactools
+The index .fai and the fasta .fna file of the reference need to be in the same folder
 ```
-gtool=/PATH/to/glactools
-REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fai
+gtool=/scratch/08752/ftermig/programs/glactools/glactools
+REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna.fai
 module load gcc/9.1.0
 ```
 ##### step 1
 Keep the same name for all files.
 Make postion file .pos
 ```
-zcat genolike1-greenjay.mafs.gz | cut -f 1,2 > genolike1-greenjay.mafs.pos
-gzip genolike1-greenjay.mafs.pos
-mv genolike1-greenjay.mafs.pos.gz > genolike1-greenjay.pos.gz
+zcat genolike1-greenjay_AUTOSOMES.mafs.gz | cut -f 1,2 > genolike1-greenjay_AUTOSOMES.pos
+gzip genolike1-greenjay_AUTOSOMES.pos
 ```
 ##### step 2
 Creat glf file format
 ```
-$gtool beagle2glf --fai $REFPATH genolike1-greenjay > genolike1-greenjay-UNPLACED.glf.gz
+$gtool beagle2glf --fai $REFPATH genolike1-greenjay_AUTOSOMES > genolike1-greenjay_AUTOSOMES.glf.gz
 ```
 ##### step 3
 Create acf format
 ```
-$gtool glf2acf genolike1-greenjay-UNPLACED.glf.gz > genolike1-greenjay-UNPLACED.acf.gz
+$gtool glf2acf genolike1-greenjay_AUTOSOMES.glf.gz > genolike1-greenjay_AUTOSOMES.acf.gz
 ```
 ##### step 4
 create simplified vcf format
 ```
-$gtool glac2vcf genolike1-greenjay-UNPLACED.acf.gz > genolike1-greenjay-UNPLACED.vcf
+$gtool glac2vcf genolike1-greenjay_AUTOSOMES.acf.gz > genolike1-greenjay_AUTOSOMES.vcf
 ```
 ### Explore your vcf file
 Look how the header looks like in the vcf file
@@ -314,26 +317,50 @@ This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred 
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --window-pi-step 1000 --out Pi1Kkb 
 ```
+### Make variant database without missing data
+Select just variants with information present in all individuals
 
-### Prune SNPs every 10,000kb to select unlinked for PCA and other analyses
+### Prune SNPs every 10,000kb
+For some analyses is important to select putative unlinked variants. PCA, scan for selection and ancestry proportion analyses needs preferencially a non-linked SNPs data base.
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay-UNPLACED-10Kkb.vcf
 ```
-From this vcf file it is possible to create many formats 
+### Index vcf file 
+```
+bcftools index -s genolike1-greenjay_AUTOSOMES.vcf
+```
+### Count SNPs per chromosome
+
+From the vcf file and with the apropiate variat filter it is possible to create many formats  for downstream analysis.
 ### Create plink format for admixture program and others
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink 
 ```
-### Creat format for Bayescan
+### Create format for Bayescan
 We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
-### Creat format for Baypass
+### Creat formats for Baypass
+##### Create the .geno file
+```
+```
+##### Creat the environmental covariance matrix
+```
+```
 ### Creat format for SNPrelate in R. 
-See Job `PCA-SNPrelate-example.R` and  R code/script to run PCA, kinship and other analyses
+See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
+## Spline-window technique for genome-wide stats visualization
+It is commonly used in population genomics the window size of 10kb to 100kb to visualize distribution of summary statistics such as Fst. This is helpful to make a manhattan plot and see the genomic reagions where some selective pressures could be operating in the populations. Chosing a window size is quite arbitrary and depends on the density of the data. The spline-window technique uses a statistica value to find bouderies on the data and gives - depending on the data -, a variable window size according to the values of the statistic in use.
+#### Calculate window size for each chromosome. 
+Run the spline technique per chromosome/region: after calculatin fst in vcf tools use your *.weir.fst and split it in chromosomes, you can do that on R or on bash. For an R version see first lines on file `GeneWin-example.R`. In bash is also fast, you already have a list file with chromosomes names, used it similar to as above with the bam file but this time is easier you dont need samtools because the file is just a *txt file. Create a new directory GeneWin to save all data for GeneWin analysis
+```
+for chr in $(cat unplaced-scaffold.txt); do grep -w $chr 1Kkb.windowed.weir.fst > ./GeneWin/$chr.Kkb.windowed.weir.fst; done
+```
+####  Plot in a manhattan-like plot Fst genome-wide (all chromosomes). see R code `GeneWin-example.R` and `GeneWin-plots.R`
+For visiualization of the generated windows size you need to create a file for R that indicates the file name of each chromosome and the chromosome number that corresponds to that file. See file `files_MATCH-CHR_example.txt` for example. In this file you need to change in the first column for the complate name of the file for that chromosome. You will need this file to plot with in R with the conde in file `GeneWin-plots.R`. It is a very simple file, create that file in the way you feel more confortable, could be excel or in a terminal.
 
 ## Coalescent inferences of population demography
 PSMC takes the consensus fastq file, and infers the history of population sizes. Starting from mapped reads, the first step is to produce a consensus sequence in FASTQ format. We will use the samtools/bcftools, following the methods described in the paper of Palkopoulou et al., 2015, with defould parametres for model fitting.
 
-#### Load the module samtools 1.5. 
+#### Load version samtools 1.5. 
 Dont use a higher version of samtools. Load the reference genome.
 
 ```
@@ -341,7 +368,7 @@ module load intel/17.0.4
 module load samtools/1.5
 GB=/scratch/08752/ftermig/ref-genome/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
 ```
-#### make your list of chromosomes an array
+#### Make your list of chromosomes an array
 Check if the array is working by making a small loop into the array
 ```
 mapfile -t CHR < unplaced-scaffold.txt
@@ -377,42 +404,11 @@ Run the models in one sample. If you want to run all samples make a loop in a jo
 psmc -p "4+25*2+4+6" -o sample.TGCGAGAC.UNPLACED.consensus.psmc sample.TGCGAGAC.UNPLACED.consensus.psmcfa
 ```
 #### Make the plot
-With the generated data its possible to make your own costume plot using -R flag. We are going to try the plot that comes with PSMC program and generate the data for a costum plot in R using the generated file with extension ".0.txt." See R code/script 'PSMC-costum-plot.R' for costum plots of all individuals in one plot.
+With the generated data its possible to make your own costume plot using -R flag. We are going to try the plot that comes with PSMC program and generate the data for a costum plot in R using the generated file with extension ".0.txt." See R code/script `PSMC-costum-plot.R` for costum plots of all individuals in one plot.
 ```
 psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGAC.UNPLACED.consensus.psmc
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Genome-Evironmental-Association analysis
+Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file `distances.txt`
+### 
