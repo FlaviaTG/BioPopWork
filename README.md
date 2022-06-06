@@ -1,3 +1,4 @@
+
 # BioPopWork
  
  
@@ -33,15 +34,21 @@ Logout and log back in using the ssh command.
 conda config --set auto_activate_base true
 conda create --name ANGSD
 ```
-### Install ANGSD, bcftools, vcftools, samtools, picard and others
+### Install ANGSD, bcftools, samtools, picard and others
 ```
 conda activate ANGSD
 conda install -c bioconda angsd
 conda install -c bioconda samtools openssl=1.0
 conda install -c bioconda/label/cf201901 bcftools 
 conda install -c bioconda picard
+```
+For vcftools its needed another environment
+```
+conda create --name SUMMARY
+conda activate SUMMARY
+conda install -c bioconda/label/cf201901 vcftools
 conda install -c bioconda pgdspider
-conda install -c genomedk psmc 
+conda install -c genomedk psmc
 ```
 ### Install glactools from : `https://github.com/grenaud/glactools` in your $WORK directory
 
@@ -165,6 +172,7 @@ for sample in *.aln.sam;do picard -Xmx128g -XX:ParallelGCThreads=32 SortSam -I $
 #### Load samtools first
 
 ```
+module load intel/17.0.4
 module load samtools/1.5
 samtools view -h sample.TGCGAGAC.aln.sam.sort.bam.dedup.bam | head
 ```
@@ -175,8 +183,8 @@ After sort and index need to mark/remove optical duplicates. This could take 6-9
 picard -Xmx2g -Xms1g -XX:ParallelGCThreads=3 MarkDuplicates TMP_DIR=tmp I=sample.GAACCGCG.aln.sam.sort.bam O=sample.GAACCGCG.aln.sam.sort.bam.dedup.bam METRICS_FILE=sample.GAACCGCG.aln.sam.sort.bam.dedup.bam.metrics.txt MAX_RECORDS_IN_RAM=1000000 REMOVE_DUPLICATES=true TAGGING_POLICY=All
 ```
 ### Basic stats
-
-Obtain basic stats of the alignments with samtools, total reads mapped and unmapped, and the amount of reads with good quality. The stats could take longer. Run all in a loop and create a new file with all the info. This could take about a day. See example job in: `Job-countReads.sh` and `Job-Depth.sh`
+Obtain basic stats of the alignments with samtools, total reads mapped and unmapped, and the amount of reads with good quality. The stats could take longer. Run all in a loop and create a new file with all the info. This could take about a day. See example job in: `Job-countReads.sh` and `Job-Depth.sh`.
+For plots see `Plot-mappedReads.R`
 
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam
@@ -204,22 +212,21 @@ samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 - lower case: denotes a base that did not match the reference on the reverse strand
 
 ## 2) Prep-alignments for downstream analyses
-### Make the list of autosomes and sex chromosomes and unplaced scaffolds.
+#### Make the list of autosomes and sex chromosomes and unplaced scaffolds.
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'JAJGSY' >> unplaced-scaffold.txt
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'CM' >> placed-scaffold.txt
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep -e 'CM036387.1' -e 'CM036388.1' >> ZW-chr.txt
 cat placed-scaffold2.txt | grep -v -e 'CM036387.1' -e 'CM036388.1' >> AUTOSOMES-chr.txt
 ```
-### Use the list to split the bam files. 
+#### Use the list to split the bam files. 
 
 Try one and then make folders and a loop to split the bam files into different genomic regions or chromosomes. 
 
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b sample.TGCGAGAC.aln.sam.sort.bam > ./AUTOSOMES-CHR/sample.TGCGAGAC.aln.sam.sort.bam.AUTOSOMES.bam
 ```
-### In a loop could take 4 hours.
-Run it in a job. See example `Job-samtools-split.sh`
+In a loop could take 4 hours.Run it in a job. See example `Job-samtools-split.sh`
 ```
 for file in *.aln.sam.sort.bam ; do samtools idxstats $file | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b $file > ./AUTOSOMES-CHR/$file.AUTOSOMES.bam; done
 ```
@@ -229,15 +236,15 @@ Every time you create a new bam it has to be indexed and sorted for downstream a
 for i in *bam; do samtools sort $i -o $i.sorted.bam;done
 for i in *sorted.bam; do samtools index $i;done
 ```
-## Generate the genotypes by likelihoods
+## 3) Generate the genotypes by likelihoods
  
 We are going to perform a genotype likelihoods in a fast way using ANGSD. This method is the fastes and best approach for variable x coverage in samples. There is some information that will not beeing recovered in the final vcf file with this method. Mapping quality of reads needs to be filtering during the ANGSD run.
 
-### Call de environment ANGSD
+#### Call de environment ANGSD
 ```
 conda activate ANGSD
 ```
-### Creat a list file of your bam 
+#### Creat a list file of your bam 
 The list need to have the files for each sample with the path. See example in `bam-list-unplaced.txt`
 This is an old version GATK like genotype likelihoods by using the following flags
 - -doGlf 2: binary glf
@@ -254,7 +261,7 @@ angsd -GL 2 -out genolike1-greenjay_ZW -nThreads 68 -doGlf 2 -minInd 15 -doMajor
 ```
 If the above line works well run it in a job. See job example `Job-ANGSD-genotypes.sh`
 The output is a beagle format, positions and major allele frequencies. The beagle format need to be formated to a simple vcf file with glactools.
-### Format beagle genotypes likelihoods 
+### 3.1 ) Format beagle genotypes likelihoods 
 This vcf format is simplified, and not much SNP filter can be done after. That step was done during the genotype likelihoods calculations.
 Run each step one by one. Check that the output file from one step needs to be the input of the next step.
 #### load paths to reference and to  glactools
@@ -295,43 +302,56 @@ bcftools view --header-only genolike1-greenjay-UNPLACED.vcf
 Reheader because ANGSD place individual names into the file format acoording to the list order in the bam-file-list.txt. Needs to change header name because header in this vcf file is not detected by vcftools. Make a header file `header-order-genotype-names.txt` according to the order in `bam-file-list.txt` and use the name format for the samples you prefere most. But keep it simple without special characters.
 
 ```
-bcftools reheader -s header-order-genotype-names.txt  genolike1-greenjay-UNPLACED.vcf > newH-genolike1-greenjay-UNPLACED.vcf
+bcftools reheader -s header-order-genotype-names.txt  genolike1-greenjay_AUTOSOMES.vcf > newH-genolike1-greenjay_AUTOSOMES.vcf
 ```
 ### Check if the header added looks good
 ```
-bcftools view --header-only newH-genolike1-greenjay-UNPLACED.vcf
+bcftools view --header-only newH-genolike1-greenjay_AUTOSOMES.vcf
 ```
+## 4) Summary statistic calculations
 ### Calculate population genomics summary statistic genome-wide
 Such as Fst, Pi and relatedness statistic. The last one based on the method of Manichaikul et al., BIOINFORMATICS 2010.
 ```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --relatedness2
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --relatedness2
 ```
 ### Create the population map for Fst calculation. 
 Creat a `pop-map-north.txt` and `pop-map-south.txt` file per population listing the sample names. The resulting output file has the suffix ".fst". A window size could be use but use the smalles one because we are going to use the spline window technique in R to visualize the Fst or Pi distribution in a manhattan-like plot.
-```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --weir-fst-pop pop-map-north.txt --weir-fst-pop pop-map-south.txt --fst-window-size 1000 --out 1Kkb
-```
-This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred calculation of Fst. The provided file must contain a list of individuals - one individual per line - from the VCF file that correspond to one population. This option can be used multiple times to calculate Fst for more than two populations. These files will also be included as "--keep" options. By default, calculations are done on a per-site basis. The output file has the suffix ".weir.fst".
-
-### Calculate nucleotide diversity per bin of size 1kb
-```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --window-pi-step 1000 --out Pi1Kkb 
-```
 ### Make variant database without missing data
-Select just variants with information present in all individuals
-
+Select just variants with information present in all individuals. Keep a database 100% complate.
+```
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --max-missing 1.0 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing
+```
+Run the summary statistics Fst calculations. This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred calculation of Fst. The provided file must contain a list of individuals - one individual per line - from the VCF file that correspond to one population. This option can be used multiple times to calculate Fst for more than two populations. These files will also be included as "--keep" options. By default, calculations are done on a per-site basis. The output file has the suffix ".weir.fst".
+```
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --weir-fst-pop pop-map-north.txt --weir-fst-pop pop-map-south.txt --fst-window-size 100 --out newH-genolike1-greenjay_AUTOSOMES-100
+```
+With the output you can perform the spline window technique for a Fst genome-wide visualization
+### Calculate nucleotide diversity per bin of size 10bp
+```
+vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --window-pi-step 10bp --out Pi10bp 
+```
+### Calculate ts/tv transition & transversion
+With the ts/tv calculation we could see if the genotype went well. Do it for a database 100% complate without missing data
+```
+vcftools --vcf 34_samples_Catharus_passed_snps-sites-THIN.vcf.recode.vcf --TsTv-summary --max-missing 1.0 --out Catharus-Thin --keep bicknelli-samples.txt --out Catharus-Thin-B
+```
 ### Prune SNPs every 10,000kb
 For some analyses is important to select putative unlinked variants. PCA, scan for selection and ancestry proportion analyses needs preferencially a non-linked SNPs data base.
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay-UNPLACED-10Kkb.vcf
 ```
-### Index vcf file 
+From the vcf file and with the apropiate variat filter it is possible to create many formats for downstream analysis.
+### Index vcf file
+First need to compress
 ```
-bcftools index -s genolike1-greenjay_AUTOSOMES.vcf
+bgzip genolike1-greenjay_AUTOSOMES.vcf
+bcftools index genolike1-greenjay_AUTOSOMES.vcf
 ```
 ### Count SNPs per chromosome
-
-From the vcf file and with the apropiate variat filter it is possible to create many formats  for downstream analysis.
+Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
+```
+zcat genolike1-greenjay_AUTOSOMES.vcf | grep -v "^#"  | cut -f 1 | sort | uniq -c > SNP-per-CHR.txt
+```
 ### Create plink format for admixture program and others
 ```
 vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink 
@@ -339,25 +359,29 @@ vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink
 ### Create format for Bayescan
 We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
 ### Creat formats for Baypass
+This program needs a very special database format. We are going to use several steps to  get into that format. We need to make population counts per allele and then merge both alleles.
 ##### Create the .geno file
+First we create the .geno file in ADEGENET R package. See conde in ``
 ```
 ```
+Second we create the final database with R code
+
 ##### Creat the environmental covariance matrix
 ```
 ```
-### Creat format for SNPrelate in R. 
-See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
-## Spline-window technique for genome-wide stats visualization
+## 5) Creat format for PCA analyses. 
+We are going to use the SNPrelate R packages for PCA and other analyses. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
+## 6) Spline-window technique for genome-wide stats visualization
 It is commonly used in population genomics the window size of 10kb to 100kb to visualize distribution of summary statistics such as Fst. This is helpful to make a manhattan plot and see the genomic reagions where some selective pressures could be operating in the populations. Chosing a window size is quite arbitrary and depends on the density of the data. The spline-window technique uses a statistica value to find bouderies on the data and gives - depending on the data -, a variable window size according to the values of the statistic in use.
 #### Calculate window size for each chromosome. 
 Run the spline technique per chromosome/region: after calculatin fst in vcf tools use your *.weir.fst and split it in chromosomes, you can do that on R or on bash. For an R version see first lines on file `GeneWin-example.R`. In bash is also fast, you already have a list file with chromosomes names, used it similar to as above with the bam file but this time is easier you dont need samtools because the file is just a *txt file. Create a new directory GeneWin to save all data for GeneWin analysis
 ```
 for chr in $(cat unplaced-scaffold.txt); do grep -w $chr 1Kkb.windowed.weir.fst > ./GeneWin/$chr.Kkb.windowed.weir.fst; done
 ```
-####  Plot in a manhattan-like plot Fst genome-wide (all chromosomes). see R code `GeneWin-example.R` and `GeneWin-plots.R`
+#### Plot in a manhattan-like plot Fst genome-wide (all chromosomes). see R code `GeneWin-example.R` and `GeneWin-plots.R`
 For visiualization of the generated windows size you need to create a file for R that indicates the file name of each chromosome and the chromosome number that corresponds to that file. See file `files_MATCH-CHR_example.txt` for example. In this file you need to change in the first column for the complate name of the file for that chromosome. You will need this file to plot with in R with the conde in file `GeneWin-plots.R`. It is a very simple file, create that file in the way you feel more confortable, could be excel or in a terminal.
 
-## Coalescent inferences of population demography
+## 7) Coalescent inferences of population demography
 PSMC takes the consensus fastq file, and infers the history of population sizes. Starting from mapped reads, the first step is to produce a consensus sequence in FASTQ format. We will use the samtools/bcftools, following the methods described in the paper of Palkopoulou et al., 2015, with defould parametres for model fitting.
 
 #### Load version samtools 1.5. 
@@ -409,6 +433,6 @@ With the generated data its possible to make your own costume plot using -R flag
 psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGAC.UNPLACED.consensus.psmc
 ```
 
-## Genome-Evironmental-Association analysis
+## 8) Genome-Evironmental-Association analysis
 Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file `distances.txt`
 ### 
