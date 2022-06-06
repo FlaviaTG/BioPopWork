@@ -1,4 +1,3 @@
-
 # BioPopWork
  
  
@@ -213,6 +212,7 @@ samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 
 ## 2) Prep-alignments for downstream analyses
 #### Make the list of autosomes and sex chromosomes and unplaced scaffolds.
+Here you need to select one chromosome and insted of taking the Z and the W or all AUTOSOMES, just select one or two chromosomes for all the downstream analyses.
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'JAJGSY' >> unplaced-scaffold.txt
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'CM' >> placed-scaffold.txt
@@ -310,51 +310,40 @@ bcftools view --header-only newH-genolike1-greenjay_AUTOSOMES.vcf
 ```
 ## 4) Summary statistic calculations
 ### Calculate population genomics summary statistic genome-wide
-Such as Fst, Pi and relatedness statistic. The last one based on the method of Manichaikul et al., BIOINFORMATICS 2010.
-```
-vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --relatedness2
-```
-### Create the population map for Fst calculation. 
-Creat a `pop-map-north.txt` and `pop-map-south.txt` file per population listing the sample names. The resulting output file has the suffix ".fst". A window size could be use but use the smalles one because we are going to use the spline window technique in R to visualize the Fst or Pi distribution in a manhattan-like plot.
+Such as Fst, Pi and relatedness statistic.
 ### Make variant database without missing data
 Select just variants with information present in all individuals. Keep a database 100% complate.
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --max-missing 1.0 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing
 ```
-Run the summary statistics Fst calculations. This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred calculation of Fst. The provided file must contain a list of individuals - one individual per line - from the VCF file that correspond to one population. This option can be used multiple times to calculate Fst for more than two populations. These files will also be included as "--keep" options. By default, calculations are done on a per-site basis. The output file has the suffix ".weir.fst".
+Run relatedness on the method of Manichaikul et al., BIOINFORMATICS 2010.
 ```
-vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --weir-fst-pop pop-map-north.txt --weir-fst-pop pop-map-south.txt --fst-window-size 100 --out newH-genolike1-greenjay_AUTOSOMES-100
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --relatedness2
 ```
-With the output you can perform the spline window technique for a Fst genome-wide visualization
+### Create the population map for Fst calculation. 
+Creat a `pop-map-north.txt` and `pop-map-south.txt` file per population listing the sample names. The resulting output file has the suffix ".fst". A window size could be use but use the smalles one because we are going to use the spline window technique in R to visualize the Fst or Pi distribution in a manhattan-like plot.Run the summary statistics Fst calculations. This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred calculation of Fst. The provided file must contain a list of individuals - one individual per line - from the VCF file that correspond to one population. This option can be used multiple times to calculate Fst for more than two populations. These files will also be included as "--keep" options. By default, calculations are done on a per-site basis. The output file has the suffix ".weir.fst".
+```
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --weir-fst-pop pop-map-north.txt --weir-fst-pop pop-map-south.txt --fst-window-size 100 --out newH-genolike1-greenjay_AUTOSOMES-NOmissing-100bp
+```
+With the output you can perform the spline window technique for a Fst genome-wide visualization. See step 6).
 ### Calculate nucleotide diversity per bin of size 10bp
 ```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --window-pi-step 10bp --out Pi10bp 
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --window-pi-step 10bp --out Pi10bp 
 ```
 ### Calculate ts/tv transition & transversion
 With the ts/tv calculation we could see if the genotype went well. Do it for a database 100% complate without missing data
 ```
-vcftools --vcf 34_samples_Catharus_passed_snps-sites-THIN.vcf.recode.vcf --TsTv-summary --max-missing 1.0 --out Catharus-Thin --keep bicknelli-samples.txt --out Catharus-Thin-B
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --TsTv-summary --out TSTV-AUTOSOMES.NOmissing
 ```
 ### Prune SNPs every 10,000kb
 For some analyses is important to select putative unlinked variants. PCA, scan for selection and ancestry proportion analyses needs preferencially a non-linked SNPs data base.
 ```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay-UNPLACED-10Kkb.vcf
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
 From the vcf file and with the apropiate variat filter it is possible to create many formats for downstream analysis.
-### Index vcf file
-First need to compress
-```
-bgzip genolike1-greenjay_AUTOSOMES.vcf
-bcftools index genolike1-greenjay_AUTOSOMES.vcf
-```
-### Count SNPs per chromosome
-Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
-```
-zcat genolike1-greenjay_AUTOSOMES.vcf | grep -v "^#"  | cut -f 1 | sort | uniq -c > SNP-per-CHR.txt
-```
 ### Create plink format for admixture program and others
 ```
-vcftools --vcf newH-genolike1-greenjay-UNPLACED.vcf --plink 
+vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN --plink 
 ```
 ### Create format for Bayescan
 We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
@@ -366,9 +355,18 @@ First we create the .geno file in ADEGENET R package. See conde in ``
 ```
 Second we create the final database with R code
 
-##### Creat the environmental covariance matrix
+### Index vcf file
+First need to compress
 ```
+bgzip newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
+bcftools newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
+### Count SNPs per chromosome
+Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
+```
+zcat newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN | grep -v "^#"  | cut -f 1 | sort | uniq -c > SNP-per-CHR-Nomissing.txt
+```
+
 ## 5) Creat format for PCA analyses. 
 We are going to use the SNPrelate R packages for PCA and other analyses. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
 ## 6) Spline-window technique for genome-wide stats visualization
