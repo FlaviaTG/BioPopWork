@@ -313,7 +313,10 @@ bcftools view --header-only newH-genolike1-greenjay_AUTOSOMES.vcf
 Such as Fst, Pi and relatedness statistic.
 ### Make variant database without missing data
 Select just variants with information present in all individuals. Keep a database 100% complate.
+First call the environment SUMMARY
+
 ```
+conda activate SUMMARY
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --max-missing 1.0 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing
 ```
 Run relatedness on the method of Manichaikul et al., BIOINFORMATICS 2010.
@@ -348,12 +351,17 @@ vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN --plink
 ### Create format for Bayescan
 We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
 ### Creat formats for Baypass
-This program needs a very special database format. We are going to use several steps to  get into that format. We need to make population counts per allele and then merge both alleles.
+This program needs a very special database format. We are going to use several steps to get into that format. We need to make population counts per allele and then merge both alleles.
 ##### Create the .geno file
-First we create the .geno file in ADEGENET R package. See conde in ``
+First we create the .geno file wit PGDSpiderCli. Creat the spid file first to use it to answer questions for the format.
 ```
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat EIGENSOFT
 ```
-Second we create the final database with R code
+Run PGDspider again with the new edited .spid file `template_VCF_EIGENSOFT.spid`
+```
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat EIGENSOFT -spid template_VCF_EIGENSOFT.spid
+```
+Second we create allele counts from the .geno file with ADEGENET R package. See R code in ``
 
 ### Index vcf file
 First need to compress
@@ -433,4 +441,4 @@ psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGA
 
 ## 8) Genome-Evironmental-Association analysis
 Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file `distances.txt`
-### 
+### Prepare data for ByPass
