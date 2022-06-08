@@ -49,14 +49,14 @@ conda install -c bioconda/label/cf201901 vcftools
 conda install -c bioconda pgdspider
 conda install -c genomedk psmc
 ```
-### Install glactools from : `https://github.com/grenaud/glactools` in your $WORK directory
-
+### Install baypass from : `http://www1.montpellier.inra.fr/CBGP/software/baypass/`
 ```
-module load gcc/9.1.0
-git clone --depth 1 https://github.com/grenaud/glactools.git
-cd glactools
-make
+module load intel/18.0.0  impi/18.0.0
+wget http://www1.montpellier.inra.fr/CBGP/software/baypass/files/baypass_2.3.tar.gz
+tar -xvzf baypass_2.3.tar
+cd 
 ```
+This installation will generate a executable script that can be use by making a variable with the path when using the program in the comand line. See below the procedure.
 ### Prepare your R environment
 Load the modules and run R
 
@@ -82,12 +82,6 @@ install.packages("cowplot")
 install.packages("GenWin")
 install.packages("reshape2")
 install.packages("gghighlight")
-install.packages("adegenet", dep = TRUE, repo = "https://cran.r-project.org")
-install.packages("poppr")
-install.packages("ape")
-install.packages("ade4")
-install.packages("pegas")
-install.packages("vegan")
 ```
 ## INPUT: fastq 
 
@@ -321,31 +315,58 @@ For some analyses is important to select putative unlinked variants. PCA, scan f
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
-From the vcf file and with the apropiate variat filter it is possible to create many formats for downstream analysis.
+From the vcf file and with the apropiate variant filter it is possible to create many formats for downstream analysis.
 ### Create plink format for admixture program and others
 ```
-vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN --plink 
+vcftools --vcf newH-genolike2-greenjay_ZW-test.NOmissing.THIN.recode.vcf --plink 
 ```
-### Create format for Bayescan
-We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Check file `vcf.spid` to follow the same and edit the SNP informatio values to your needs.
-### Creat formats for Baypass
-This program needs a very special database format. We are going to use several steps to get into that format. We need to make population counts per allele and then merge both alleles.
-##### Create the .geno file
-First we create the .geno file wit PGDSpiderCli. Creat the spid file first to use it to answer questions for the format.
+### Creat formats for BayPass
+This program needs a very special database format. We are going to use several steps to get into that format. We need to make population counts per allele and then merge both alleles. First you need to create the .GESTE file for BayPass. It is the same as for the Bayescan.
+We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Create the .spid file with PGDSpider2-cli, by giving all the arguments without the -spid file. This will results in a spid file template that needs to be edited by answering the questions for the format in the generate file `template_VCF_GESTE_BAYE_SCAN.spid`.
 ```
-PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat GENEPOP
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.GESTE -outputformat GESTE_BAYE_SCAN
 ```
-Run PGDspider again with the new edited .spid file `template_VCF_GENEPOP.spid`
+Run PGDspider again with the new edited .spid file `template_VCF_GESTE_BAYE_SCAN.spid`
 ```
-PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat GENEPOP -spid template_VCF_GENEPOP.spid
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.GESTE -outputformat GESTE_BAYE_SCAN -spid template_VCF_GESTE_BAYE_SCAN.spid
 ```
-Second we create allele counts from the .geno file generated above. For this next step we are going to use ADEGENET R package. See R code in `Format-ByPass-example.R`
+Now we do some bash comands step by step to check one by one we are formating the data correctly
+##### Remove the first lines with info not necesary for the BayPass format
+```
+sed -e '1,4d' newH-genolike2-greenjay_ZW-test.NOmissing.THIN.GESTE > test2.GESTE
+```
+##### Split files in populations
+We have two populations that are separate in the generated file above, by new lines.
+```
+sed '/^$/q' test2.GESTE > test2-pop1.txt
+sed '1,/^$/d' test2.GESTE > test2-pop2.txt
+```
+##### Remove the empty lines at the end of each file
+```
+sed -i '/^$/d' test2-pop2.txt
+sed -i '/^$/d' test2-pop1.txt
+```
+##### Concatenate by column files of pop1 and pop2 in columns
+First select just the columns 4 with two alleles info
+```
+cut -f4 test2-pop1.txt > format-test2-pop1.txt
+cut -f4 test2-pop2.txt > format-test2-pop2.txt
+```
+##### Paste the two populations files by columns and separate by space
+```
+paste -d '' format-test2-pop1.txt format-test2-pop2.txt > BayPass-format-test-ZW-thin.txt
+```
+For the final format the frist line with the headers need to be removed
+```
+sed -i '1,1d' BayPass-format-test-ZW-thin.txt
+```
+Now you have ready the genotype format per population to be use as input for BayPass. Consult the manual of the programs for more details.
 
 ### Index vcf file
-First need to compress
+For some other programs the vcf file needs to be indexed. To do that first need to compress the vcf file and later
 ```
 bgzip newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
-bcftools newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
+bcftools index newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
 ### Count SNPs per chromosome
 Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
@@ -432,5 +453,29 @@ psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGA
 ```
 
 ## 8) Genome-Evironmental-Association analysis
-Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file ``
-### Prepare data for ByPass
+Look for regions in the genome that are associated to environmental conditions. Above you have generated the BayPass format file and you also have the covariance environmental matrix file per populations ``
+### load requirements for ByPass
+```
+module load intel/18.0.0  impi/18.0.0
+module load gcc/9.1.0
+BayPass=/scratch/08752/ftermig/programs/baypass_2.3/sources
+```
+First you need to sacale your variables. This could take 40min hour for 2 chromosomes
+```
+./$BayPass/g_baypass
+./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./cov-Bio1-pop.txt -scalecov -outprefix Scale-var-Bio1  
+```
+Now you need to create a omega file obtained by a first analysis under the core model or the IS covariate mode
+```
+./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -omegafile anacore_mat_omega.out -outprefix anacoreZW
+```
+Try to run the core model to compare it wiht th AUX model
+```
+./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -covmcmc -omegafile anacove_mat_omega.out -outprefix anacoveZW
+```
+The above comands will generate files for the final GEA analysis under model AUX. These are going to be the input for the final Run.
+```
+./g_baypass -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile cov-Bio1-pop.txt -covmcmc -auxmodel -omegafile anacore_mat_omega.out -outprefix Aux-var-Bio1
+```
+#### Load R scripts to evalute models and plot final results
+To evaluate the models and plot final results you need to use the source R code `baypass_utils.R`. Examples on how to use it are in file `BayPass-PLOTS.R`
