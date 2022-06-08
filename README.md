@@ -82,7 +82,12 @@ install.packages("cowplot")
 install.packages("GenWin")
 install.packages("reshape2")
 install.packages("gghighlight")
-
+install.packages("adegenet", dep = TRUE, repo = "https://cran.r-project.org")
+install.packages("poppr")
+install.packages("ape")
+install.packages("ade4")
+install.packages("pegas")
+install.packages("vegan")
 ```
 ## INPUT: fastq 
 
@@ -257,43 +262,16 @@ This is an old version GATK like genotype likelihoods by using the following fla
 - -minMapQ 30: here is where the mapping quality filtering is happening. After that SNPs does not need to keep that info in the vcf file
 - -minQ 20: here is the filter for the minimum base quality score. 
 ```
-angsd -GL 2 -out genolike1-greenjay_ZW -nThreads 68 -doGlf 2 -minInd 15 -doMajorMinor 1 -SNP_pval 1e-6 -minMaf 0.05 -doMaf 1 -minMapQ 30 -minQ 20 -bam bam-list-ZW.txt
+angsd -GL 2 -doBcf 1 -out genolike2-greenjay_ZW -nThreads 68 -doPost 1 -docounts 1 -dogeno 1 -minInd 15 -doMajorMinor 1 -SNP_pval 1e-6 -minMaf 0.05 -doMaf 1 -minMapQ 30 -minQ 20 -bam bam-list-ZW.txt
 ```
 If the above line works well run it in a job. See job example `Job-ANGSD-genotypes.sh`
-The output is a beagle format, positions and major allele frequencies. The beagle format need to be formated to a simple vcf file with glactools.
-### 3.1 ) Format beagle genotypes likelihoods 
-This vcf format is simplified, and not much SNP filter can be done after. That step was done during the genotype likelihoods calculations.
-Run each step one by one. Check that the output file from one step needs to be the input of the next step.
-#### load paths to reference and to  glactools
-The index .fai and the fasta .fna file of the reference need to be in the same folder
-```
-gtool=/scratch/08752/ftermig/programs/glactools/glactools
-REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna.fai
-module load gcc/9.1.0
-```
-##### step 1
-Keep the same name for all files.
-Make postion file .pos
-```
-zcat genolike1-greenjay_AUTOSOMES.mafs.gz | cut -f 1,2 > genolike1-greenjay_AUTOSOMES.pos
-gzip genolike1-greenjay_AUTOSOMES.pos
-```
-##### step 2
-Creat glf file format
-```
-$gtool beagle2glf --fai $REFPATH genolike1-greenjay_AUTOSOMES > genolike1-greenjay_AUTOSOMES.glf.gz
-```
-##### step 3
-Create acf format
-```
-$gtool glf2acf genolike1-greenjay_AUTOSOMES.glf.gz > genolike1-greenjay_AUTOSOMES.acf.gz
-```
-##### step 4
-create simplified vcf format
-```
-$gtool glac2vcf genolike1-greenjay_AUTOSOMES.acf.gz > genolike1-greenjay_AUTOSOMES.vcf
-```
+The output is a bcf format the compressed version of a vcf files.
+``
 ### Explore your vcf file
+First convert the compressed form .bcf into vcf decompressed form
+```
+bcftools convert -O v genolike2-greenjay_ZW.bcf -o genolike2-greenjay_ZW-test.vcf
+```
 Look how the header looks like in the vcf file
 ```
 bcftools view --header-only genolike1-greenjay-UNPLACED.vcf
@@ -355,13 +333,13 @@ This program needs a very special database format. We are going to use several s
 ##### Create the .geno file
 First we create the .geno file wit PGDSpiderCli. Creat the spid file first to use it to answer questions for the format.
 ```
-PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat EIGENSOFT
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat GENEPOP
 ```
-Run PGDspider again with the new edited .spid file `template_VCF_EIGENSOFT.spid`
+Run PGDspider again with the new edited .spid file `template_VCF_GENEPOP.spid`
 ```
-PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat EIGENSOFT -spid template_VCF_EIGENSOFT.spid
+PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.geno -outputformat GENEPOP -spid template_VCF_GENEPOP.spid
 ```
-Second we create allele counts from the .geno file with ADEGENET R package. See R code in ``
+Second we create allele counts from the .geno file generated above. For this next step we are going to use ADEGENET R package. See R code in `Format-ByPass-example.R`
 
 ### Index vcf file
 First need to compress
@@ -375,8 +353,8 @@ Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
 zcat newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN | grep -v "^#"  | cut -f 1 | sort | uniq -c > SNP-per-CHR-Nomissing.txt
 ```
 
-## 5) Creat format for PCA analyses. 
-We are going to use the SNPrelate R packages for PCA and other analyses. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
+## 5) Exploring data with PCA analysis. 
+We are going to use the SNPrelate R packages for PCA and other analyses. First the vcf file needs to be formated to gds in R. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
 ## 6) Spline-window technique for genome-wide stats visualization
 It is commonly used in population genomics the window size of 10kb to 100kb to visualize distribution of summary statistics such as Fst. This is helpful to make a manhattan plot and see the genomic reagions where some selective pressures could be operating in the populations. Chosing a window size is quite arbitrary and depends on the density of the data. The spline-window technique uses a statistica value to find bouderies on the data and gives - depending on the data -, a variable window size according to the values of the statistic in use.
 #### Calculate window size for each chromosome. 
@@ -422,17 +400,31 @@ All chromosome/scaffold in one fastq per sample
 ```
 cat sample.TGCGAGAC*JAJGSY0*.fq > sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq
 ```
-If one sample works well, try to make another loop to create the concensus sequences per chromosome and per sample
+If one sample works well, try to make another loop to create the concensus sequences per sample with all chromosomes
+```
+mapfile -t samples < samples-barcode.txt
+
+for str in ${samples[@]}; do
+  echo $str
+done
+
+for str in ${samples[@]}; do
+cat sample.$str.*CM0*.fq > sample.$str.aln.sam.sort.bam.ZW.consensus.fq
+done
+```
 #### Create format for PSMC
 If you want to run all samples make a loop in a job. See job example ``
 ```
 fq2psmcfa sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq > sample.TGCGAGAC.UNPLACED.consensus.psmcfa
 ```
+How would you do it in a loop for all samples?
+
 #### Run PSMC
 Run the models in one sample. If you want to run all samples make a loop in a job. See job example ``
 ```
 psmc -p "4+25*2+4+6" -o sample.TGCGAGAC.UNPLACED.consensus.psmc sample.TGCGAGAC.UNPLACED.consensus.psmcfa
 ```
+for
 #### Make the plot
 With the generated data its possible to make your own costume plot using -R flag. We are going to try the plot that comes with PSMC program and generate the data for a costum plot in R using the generated file with extension ".0.txt." See R code/script `PSMC-costum-plot.R` for costum plots of all individuals in one plot.
 ```
@@ -440,5 +432,5 @@ psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGA
 ```
 
 ## 8) Genome-Evironmental-Association analysis
-Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file `distances.txt`
+Look for regions in the genome that are associated to environmental conditions. Above you have generated the .geno file format for ByPass program and you also have the covariance environmental matrix file ``
 ### Prepare data for ByPass
