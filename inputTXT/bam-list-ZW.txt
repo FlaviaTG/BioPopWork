@@ -18,4 +18,3 @@
 /scratch/08752/ftermig/data/ZW-CHR/sample.TCGATAAC.aln.sam.sort.bam.ZW.bam
 /scratch/08752/ftermig/data/ZW-CHR/sample.TCTGTTGG.aln.sam.sort.bam.ZW.bam
 /scratch/08752/ftermig/data/ZW-CHR/sample.TGCGAGAC.aln.sam.sort.bam.ZW.bam
-

@@ -15,6 +15,6 @@ REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna.fai
 module load gcc/9.1.0
 
 
-#$gtool beagle2glf --fai $REFPATH genolike1-greenjay_AUTOSOMES > genolike1-greenjay_AUTOSOMES.glf.gz
-#$gtool glf2acf genolike1-greenjay_AUTOSOMES.glf.gz > genolike1-greenjay_AUTOSOMES.acf.gz
-$gtool glac2vcf genolike1-greenjay_AUTOSOMES.acf.gz > genolike1-greenjay_AUTOSOMES.vcf
+#$gtool beagle2glf --fai $REFPATH genolike1-greenjay_ZW > genolike1-greenjay_ZW.glf.gz
+#$gtool glf2acf genolike1-greenjay_ZW.glf.gz > genolike1-greenjay_ZW.acf.gz
+$gtool glac2vcf genolike1-greenjay_ZW.acf.gz > genolike1-greenjay_ZW.vcf

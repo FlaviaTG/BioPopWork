@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J Sortsamtools           # Job name
-#SBATCH -o Sortsamtools.o%j  # Name of stdout output file
-#SBATCH -e Sortsamtools.e%j  # Name of stderr error file
+#SBATCH -J mpileup           # Job name
+#SBATCH -o mpileup.o%j  # Name of stdout output file
+#SBATCH -e mpileup.e%j  # Name of stderr error file
 #SBATCH -p normal          # Queue (partition) name
 #SBATCH -N 1               # Total # of nodes (must be 1 for serial)
 #SBATCH -n 68               # Total # of mpi tasks (should be 1 for serial)
@@ -13,6 +13,12 @@
 module load intel/17.0.4
 module load samtools/1.5
 
-
-#for i in *bam; do samtools sort $i -o $i.sorted.bam;done
-for i in *sorted.bam; do samtools index $i;done
+GB=/scratch/08752/ftermig/ref-genome/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
+mapfile -t CHR < ZW-chr.txt
+#
+for str in ${CHR[@]}; do for file in *.sorted.bam; do
+samtools mpileup -Q 30 -q 20 -u -v \
+-f $GB -r $str $file |  
+bcftools call -c |  
+vcfutils.pl vcf2fq -d 5 -D 34 -Q 30 > /scratch/08752/ftermig/Demography/ZW/$file.$str.fq
+done;done
