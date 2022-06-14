@@ -48,13 +48,18 @@ conda activate SUMMARY
 conda install -c bioconda/label/cf201901 vcftools
 conda install -c bioconda pgdspider
 conda install -c genomedk psmc
+conda install -c bioconda admixture
+conda install -c bioconda plink2 
 ```
-### Install baypass from : `http://www1.montpellier.inra.fr/CBGP/software/baypass/`
+### Install BayPass from : `http://www1.montpellier.inra.fr/CBGP/software/baypass/`
 ```
-module load intel/18.0.0  impi/18.0.0
+module load gcc/9.1.0
 wget http://www1.montpellier.inra.fr/CBGP/software/baypass/files/baypass_2.3.tar.gz
-tar -xvzf baypass_2.3.tar
-cd 
+tar -xvzf baypass_2.3.tar.gz
+cd baypass_2.3
+export INSTALLDIR=/scratch/08752/ftermig/programs/baypass_2.3/sources
+make clean all FC=gfortran -C $INSTALLDIR
+
 ```
 This installation will generate a executable script that can be use by making a variable with the path when using the program in the comand line. See below the procedure.
 ### Prepare your R environment
@@ -82,7 +87,14 @@ install.packages("cowplot")
 install.packages("GenWin")
 install.packages("reshape2")
 install.packages("gghighlight")
+install.packages("corrplot")
+install.packages("ape")
+install.packages("geigen")
+install.packages("mvtnorm")
+install.packages("magrittr")
+install.packages("dplyr")
 ```
+#
 ## INPUT: fastq 
 
 Pair-end sequencing data, R1.fq and R2.fq files per samples
@@ -456,26 +468,67 @@ psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGA
 Look for regions in the genome that are associated to environmental conditions. Above you have generated the BayPass format file and you also have the covariance environmental matrix file per populations ``
 ### load requirements for ByPass
 ```
-module load intel/18.0.0  impi/18.0.0
 module load gcc/9.1.0
 BayPass=/scratch/08752/ftermig/programs/baypass_2.3/sources
 ```
 First you need to sacale your variables. This could take 40min hour for 2 chromosomes
 ```
-./$BayPass/g_baypass
-./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./cov-Bio1-pop.txt -scalecov -outprefix Scale-var-Bio1  
+$BayPass/g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./cov-Bio1-pop.txt -scalecov -outprefix Scale-var-Bio1  
 ```
-Now you need to create a omega file obtained by a first analysis under the core model or the IS covariate mode
+Now you need to create a omega file obtained by a first analysis under the core model or the IS covariate mode with your scaled variables
 ```
-./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -omegafile anacore_mat_omega.out -outprefix anacoreZW
+$BayPass/g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -omegafile Scale-var-Bio1_mat_omega.out -outprefix anacoreZW
 ```
-Try to run the core model to compare it wiht th AUX model
+Try to run the core model to compare it with th AUX model and you need to use the omega file generated above
 ```
-./g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -covmcmc -omegafile anacove_mat_omega.out -outprefix anacoveZW
+$BayPass/g_baypass -nthreads 40 -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -covmcmc -omegafile Scale-var-Bio1_mat_omega.out -outprefix anacoveZW
 ```
 The above comands will generate files for the final GEA analysis under model AUX. These are going to be the input for the final Run.
 ```
-./g_baypass -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile cov-Bio1-pop.txt -covmcmc -auxmodel -omegafile anacore_mat_omega.out -outprefix Aux-var-Bio1
+$BayPass/g_baypass -nthreads 40 -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile cov-Bio1-pop.txt -auxmodel -omegafile Scale-var-Bio1_mat_omega.out -outprefix Aux-var-Bio1
 ```
 #### Load R scripts to evalute models and plot final results
 To evaluate the models and plot final results you need to use the source R code `baypass_utils.R`. Examples on how to use it are in file `BayPass-PLOTS.R`
+You can get the variant outliers from the betai.out output by selecting the columns like this
+```
+less 2anaux1B_summary_betai.out | tr -s '\ '| awk -F ' ' '{print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}'| sort -m | awk '{ if ($6 > 3) {print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}}' > Outliers-Bio1-aux.txt
+```
+you can be more specific and select outliers with certain BF value > 10 for STRONG STRENGTH SELECTION
+```
+less Outliers-Bio1-aux.txt |awk '{ if ($6 > 10) {print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}}' > Strong-Outliers-Bio1-aux.txt
+```
+Now you need to track back the exact variant under selection and position by going into the pre-formating input into BayPass.
+
+## 9) Genome scan for selection (multinomial-Dirichlet model)
+### run Bayescan
+Now that you have generated the input for BayeScan, you can run the program to give it a try.
+BayeScan could take a while to run. Run it in a job see example `Job-Bayescan.sh`
+This is an old bayesian method based on the multinomial-Dirichlet model to find diverget selection under the simplest possible scenarios of an island model in which subpopulation allele frequencies (mesured by Fst coefficient) are correlated through a common migrant gene pool from which they differ in varying degrees. This program formulation can consider realistic ecological scenarios where the effective size and the immigration rate may differ among subpopulations. See details in: http://cmpg.unibe.ch/software/BayeScan/index.html. This program can be use as a base line of analyses to explore the data because the format is simple and quite fast.
+
+```
+module load gcc/9.1.0
+SCAN=/scratch/08752/ftermig/programs/BayeScan2.1/binaries
+$SCAN/BayeScan2.1_linux64bits newH-genolike2-greenjay_ZW-test.NOmissing.THIN.GESTE -n 5000 -nbp 20 -pilot 5000 -burn 50000 -pr_odds 100 -threads 40 -out_freq -od ./BAYESCAN/
+```
+The fst output can be ploted by using the bayescan R plot function. See examples on how to use it in R code `BayeScan-plot.R`
+## 10) Ancestry proportions (population structure)
+### run ADMIXTURE
+But first you need to creat a .bed file format for that programrun with plink2. Plink and admixture are in your conda environment SUMMARY
+```
+conda activate SUMMARY
+plink2 --vcf newH-genolike2-greenjay_ZW-test.NOmissing.THIN.recode.vcf --geno 0.9 --recode --no-fid --no-parents --no-sex --no-pheno --out newH-genolike2-greenjay_ZW-test.NOmissing.THIN --make-bed --allow-extra-chr 0
+```
+Now you can run admixture test if works well run more K
+```
+admixture newH-genolike2-greenjay_ZW-test.NOmissing.THIN.bed 5
+```
+Now in a loop to get run more values of K and validations file. You can run this in a slurm job, see job `Job-ADMIXTURE.sh`
+```
+for K in 1 2 3 4 5 6 7 8 9 10; do admixture -B2000 -j40 --cv newH-genolike2-greenjay_ZW-test.NOmissing.THIN.bed $K | tee Bootlog${K}.out; done
+```
+With the validation file and the proportions of ancestry Q files, you can plot the best K value by cross-validation and a barplot, see R code in `ADMIXTURE-plot.R`
+You need to format you file to make it easy for R to plot, by putting together all K validation files like this:
+```
+grep -h CV Bootlog*.out > cross.val.txt
+```
+Check the `cross.val.txt` for spaces or extra characters that could interfere with R plotting. After that you can use it to plot in R using code `ADMIXTURE-plot.R`
