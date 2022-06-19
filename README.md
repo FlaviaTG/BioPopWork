@@ -505,7 +505,6 @@ Look for regions in the genome that are associated to environmental conditions. 
 ### load requirements for ByPass
 ```
 module load gcc/9.1.0
-BayPass=/scratch/08752/ftermig/programs/baypass_2.3/sources
 BayPass=/work2/08752/ftermig/stampede2/apps/baypass_2.3/sources
 ```
 First, you need to scale your variables. This could take 40min hour for 2 chromosomes
