@@ -9,39 +9,51 @@ The workshop is for practicing how to obtain formats and analyses for fast-and-f
 ## Aims
 
 - Familiarize the student with programming languages used repeatedly in population genomics analyses.
-- Provide alternatives to solve recurring problems in formatting or developing databases for analyses. 
+- Provide alternatives to solve recurring formatting problems or develop databases for analyses. 
 - Promote creative thinking on how to prepare analyses to answer specific questions.
-- Promote conscientious use of bioinformatics resources such as programs and models. To maintain critical thinking when it comes to biological interpretations and recognize the limitations of each tool.
+- Promote conscientious use of bioinformatics resources such as programs and models to maintain critical thinking regarding biological interpretations and recognize the limitations of each tool.
 
 ## Programs:
 
 We will create an environment and will use the module system.
 
+### ask for an interactive session in TACC
+```
+idev -p normal -m 180 -A Keitt-Lab -t 02:00:00 -N 1 -n 68
+```
+### Create folders on your $SCRATCH path
+cd $SCRATCH
+mkdir Data
+mkdir Alignment
+mkdir Ancestry
+mkdir Demography
+mkdir Genotypes
+mkdir ref-genome
+mkdir Selection
 ### Create conda env.
 
 Download miniconda from here
 ```
 https://docs.conda.io/en/latest/miniconda.html#linux-installers
 ```
-Follow the instructions, typing yes when needed, and enter
+Follow the instructions, type yes when needed, and enter
 ```
 bash Miniconda3-py39_4.9.2-Linux-x86_64.sh
 ```
-
 Logout and log back in using the ssh command.
 ```
-conda config --set auto_activate_base true
-conda create --name ANGSD
+conda config --set auto_activate_base false
 ```
 ### Install ANGSD, bcftools, samtools, picard and others
 ```
+conda create --name ANGSD
 conda activate ANGSD
 conda install -c bioconda angsd
 conda install -c bioconda samtools openssl=1.0
 conda install -c bioconda/label/cf201901 bcftools 
 conda install -c bioconda picard
 ```
-For vcftools its needed another environment
+For vcftools it needed another environment.
 ```
 conda create --name SUMMARY
 conda activate SUMMARY
@@ -57,11 +69,20 @@ module load gcc/9.1.0
 wget http://www1.montpellier.inra.fr/CBGP/software/baypass/files/baypass_2.3.tar.gz
 tar -xvzf baypass_2.3.tar.gz
 cd baypass_2.3
-export INSTALLDIR=/scratch/08752/ftermig/programs/baypass_2.3/sources
-make clean all FC=gfortran -C $INSTALLDIR
-
+export INSTALLDIR=$WORK/apps/baypass_2.3/
+make clean all FC=gfortran -C $INSTALLDIR -o0
 ```
-This installation will generate a executable script that can be use by making a variable with the path when using the program in the comand line. See below the procedure.
+This installation will generate an executable script. You will need the path of this executable script to call the program. See below the procedure.
+### Install BayeScan from : `http://cmpg.unibe.ch/software/BayeScan/download.html`
+```
+module load gcc/9.1.0
+cd $WORK/apps/
+wget http://cmpg.unibe.ch/software/BayeScan/files/BayeScan2.1.zip
+unzip BayeScan2.1.zip
+cd BayeScan2.1
+make
+```
+You will use the binaries files BayeScan2.1_linux64bits in BayeScan2.1/binaries folder
 ### Prepare your R environment
 Load the modules and run R
 
@@ -93,8 +114,21 @@ install.packages("geigen")
 install.packages("mvtnorm")
 install.packages("magrittr")
 install.packages("dplyr")
+install.packages("boa")
 ```
-#
+## Get the files and storage in the appropriate directory just created
+Download reference genome from NCBI by searching for Corvus hawaiiensis genome
+```
+cd $SCRATCH/ref-genome
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/020/740/725/GCF_020740725.1_bCorHaw1.pri.cur/GCF_020740725.1_bCorHaw1.pri.cur_genomic.fna.gz
+```
+Make softlinks of fastq files and bam files. This way, you copy the file as a link to avoid duplicating the entire file.
+```
+cd $SCRATCH/Data
+ln -s /work2/08209/brian97/shared_reseq/*gz .
+cd $SCRATCH/Alignment
+ln -s /work2/08752/ftermig/shared_workshop/bamfiles/*bam .
+```
 ## INPUT: fastq 
 
 Pair-end sequencing data, R1.fq and R2.fq files per samples
@@ -106,7 +140,7 @@ The first step is to check for read quality using Fred scores by running fastqc 
 module load fastqc/0.11.5
 fastqc 01.180603.B03.S1.1.fastq.gz -o ./QUALITY-reads
 ```
-In a loop and in a slurm job see bash script for an example `Job-FastqC.sh`. This job could take 2 days
+In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This job could take 2 days
 ```
 for i in *.fastq.gz; do fastqc $i -o ./QUALITY-reads;done
 ```
@@ -131,8 +165,8 @@ rename L001.R2.001.fastq.gz '2.fastq.gz' *.fastq.gz
 
 This alignment could take 9 hours per sample. You could do many alignments jobs per sample to run simultaneously or a loop to make one by one. See example job `Job-FastqC.sh`
 
-### Explore header of your fastq file
-Look into the platform ID and the individuals barcode used for the sequencing.
+### Explore the header of your fastq file
+Look into the platform ID and the individual barcode used for the sequencing.
 
 ```
 for i in *.fastq.gz; do zcat $i | head -n 4 | grep '@'; done
@@ -156,14 +190,14 @@ Creating the index will take 4 hours. Run it in a job. See example `job-refgenom
 GB=/scratch/08752/ftermig/ref-genome/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
 bwa index -p CorHaw $GB
 ```
-### Now you can run the alignments
-The alignment of DNA resequencing to a reference genome could take 9 hours
+### Now, you can run the alignments
+The alignment of DNA resequencing to a reference genome could take 9 hours.
 
 ```
 bwa mem -t 30 -M -R '@RG\tID:@A00672:51:HWJMYDSXY\tSM:CTAGCGCT' $ref/CorHaw 01.180603.B03.S1.1.fastq.gz 01.180603.B03.S1.2.fastq.gz > sample.CTAGCGCT.aln.sam
 
 ```
-After alignment, need to sort, index, and combpress sam to bam.
+After alignment, need to sort, index, and compress sam to bam.
 ### Run the modules or environment
 ```
 conda activate ANGSD
@@ -178,7 +212,7 @@ All in a loop and run it in a job. See example `Job-sam-index-sort-bam-1.sh`. Th
 ```
 for sample in *.aln.sam;do picard -Xmx128g -XX:ParallelGCThreads=32 SortSam -I $sample -O $sample.sort.bam SORT_ORDER=coordinate CREATE_INDEX=true;done
 ```
-### Check if your bam file is really sorted with samtools
+### Check if your bam file is sorted with samtools
 #### Load samtools first
 
 ```
@@ -193,7 +227,7 @@ After sort and index need to mark/remove optical duplicates. This could take 6-9
 picard -Xmx2g -Xms1g -XX:ParallelGCThreads=3 MarkDuplicates TMP_DIR=tmp I=sample.GAACCGCG.aln.sam.sort.bam O=sample.GAACCGCG.aln.sam.sort.bam.dedup.bam METRICS_FILE=sample.GAACCGCG.aln.sam.sort.bam.dedup.bam.metrics.txt MAX_RECORDS_IN_RAM=1000000 REMOVE_DUPLICATES=true TAGGING_POLICY=All
 ```
 ### Basic stats
-Obtain basic stats of the alignments with samtools, total reads mapped and unmapped, and the amount of reads with good quality. The stats could take longer. Run all in a loop and create a new file with all the info. This could take about a day. See example job in: `Job-countReads.sh` and `Job-Depth.sh`.
+Obtain basic stats of the alignments with samtools, total reads mapped and unmapped, and the number of reads with good quality. The stats could take longer. Run all in a loop and create a new file with all the info. This could take about a day. See example job in: `Job-countReads.sh` and `Job-Depth.sh`.
 For plots see `Plot-mappedReads.R`
 
 ```
@@ -206,11 +240,11 @@ Make index for reference
 ```
 samtools faidx GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
 ```
-### See the alignments in general as a whole
+### See the alignments
 ```
 samtools tview sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
-You can see a specific region, chromosomes CM036346.1. you can look into the index file of the reference to get the name of the chromosomes you will like to look at
+You can see a specific region, chromosomes CM036346.1. you can look into the index file of the reference to get the name of the chromosomes you would like to look at
 ```
 samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
@@ -222,8 +256,8 @@ samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 - lower case: denotes a base that did not match the reference on the reverse strand
 
 ## 2) Prep-alignments for downstream analyses
-#### Make the list of autosomes and sex chromosomes and unplaced scaffolds.
-Here you need to select one chromosome and insted of taking the Z and the W or all AUTOSOMES, just select one or two chromosomes for all the downstream analyses.
+#### Make the list of autosomes and sex chromosomes, and unplaced scaffolds.
+Here you need to select one or two chromosomes for all the downstream analyses.
 ```
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'JAJGSY' >> unplaced-scaffold.txt
 samtools idxstats sample.TGCGAGAC.aln.sam.sort.bam | cut -f 1 | grep 'CM' >> placed-scaffold.txt
@@ -242,36 +276,36 @@ In a loop could take 4 hours.Run it in a job. See example `Job-samtools-split.sh
 for file in *.aln.sam.sort.bam ; do samtools idxstats $file | cut -f 1 | grep -w -f AUTOSOMES-chr.txt | xargs samtools view -b $file > ./AUTOSOMES-CHR/$file.AUTOSOMES.bam; done
 ```
 #### Need to sort and index 
-Every time you create a new bam it has to be indexed and sorted for downstream analysis. See job example `Job-sort-index.sh`
+Every time you create a new bam, it must be indexed and sorted for downstream analysis. See job example `Job-sort-index.sh`
 ```
 for i in *bam; do samtools sort $i -o $i.sorted.bam;done
 for i in *sorted.bam; do samtools index $i;done
 ```
-## 3) Generate the genotypes by likelihoods
+## 3) Generate the genotypes by likelihood
  
-We are going to perform a genotype likelihoods in a fast way using ANGSD. This method is the fastes and best approach for variable x coverage in samples. There is some information that will not beeing recovered in the final vcf file with this method. Mapping quality of reads needs to be filtering during the ANGSD run.
+We are going to perform genotype likelihoods in a fast way using ANGSD. This method is the quickest and best approach when samples have variable x coverage. Some information will be negleckt in the final vcf file with this method, such as indels. The mapping quality of reads needs to be filtering during the ANGSD run.
 
 #### Call de environment ANGSD
 ```
 conda activate ANGSD
 ```
-#### Creat a list file of your bam 
-The list need to have the files for each sample with the path. See example in `bam-list-unplaced.txt`
+#### Create a list file of your bam 
+The list needs to have the files for each sample with the path. See example in `bam-list-unplaced.txt`
 This is an old version GATK like genotype likelihoods by using the following flags
 - -doGlf 2: binary glf
 - -doMajorMinor 1: Infer major and minor from GL
-- -SNP_pval 1e-6: If we are interested in looking at allele frequencies only for sites that are actually variable in our sample.
-- -minMaf         0.05        (Remove sites with MAF below) You want to remove variants with major alleles very low that could be sequencing errors. If you expect having variant with very low frequency you could change this value.
-- -SNP_pval       1.000000        (Remove sites with a pvalue larger) We can consider assigning as SNPs sites whose estimated allele frequency is above a certain threhsold (e.g. the frequency of a singleton) or whose probability of being variable is above a specified value.
+- -SNP_pval 1e-6: If we are interested in looking at allele frequencies only for sites that are variable in our sample.
+- -minMaf         0.05        (Remove sites with MAF below) You want to remove major alleles with very low frequency likely to be sequencing errors. You could change this value if you expect to have a variant with shallow frequency.
+- -SNP_pval       0.000001       (Remove sites with a pvalue larger) We can consider assigning SNPs sites whose estimated allele frequency is above a certain threshold (e.g., the frequency of a singleton) or whose probability of being variable is above a specified value.
 - -doMaf 1: Frequency (fixed major and minor)
 - -minInd: you want at least SNP present in 75% of the individuals  75% of 20 individuals is = 15 individuals
-- -minMapQ 30: here is where the mapping quality filtering is happening. After that SNPs does not need to keep that info in the vcf file
-- -minQ 20: here is the filter for the minimum base quality score. 
+- -minMapQ 30: here is the mapping quality filtering. 
+- -minQ 20: here is the minimum base quality score filter. 
 ```
 angsd -GL 2 -doBcf 1 -out genolike2-greenjay_ZW -nThreads 68 -doPost 1 -docounts 1 -dogeno 1 -minInd 15 -doMajorMinor 1 -SNP_pval 1e-6 -minMaf 0.05 -doMaf 1 -minMapQ 30 -minQ 20 -bam bam-list-ZW.txt
 ```
 If the above line works well run it in a job. See job example `Job-ANGSD-genotypes.sh`
-The output is a bcf format the compressed version of a vcf files.
+The output is a bcf format, the compressed version of vcf files.
 ``
 ### Explore your vcf file
 First convert the compressed form .bcf into vcf decompressed form
@@ -283,7 +317,7 @@ Look how the header looks like in the vcf file
 bcftools view --header-only genolike1-greenjay-UNPLACED.vcf
 ```
 ### Reheader with bcftools
-Reheader because ANGSD place individual names into the file format acoording to the list order in the bam-file-list.txt. Needs to change header name because header in this vcf file is not detected by vcftools. Make a header file `header-order-genotype-names.txt` according to the order in `bam-file-list.txt` and use the name format for the samples you prefere most. But keep it simple without special characters.
+Reheader because ANGSD place individual names into the file format according to the list order in the bam-file-list.txt. It needs to change header name because header in this vcf file is not detected by vcftools. Make a header file `header-order-genotype-names.txt` according to the order in `bam-file-list.txt` and use the name format for the samples you prefer most. But keep it simple without special characters.
 
 ```
 bcftools reheader -s header-order-genotype-names.txt  genolike1-greenjay_AUTOSOMES.vcf > newH-genolike1-greenjay_AUTOSOMES.vcf
@@ -294,10 +328,10 @@ bcftools view --header-only newH-genolike1-greenjay_AUTOSOMES.vcf
 ```
 ## 4) Summary statistic calculations
 ### Calculate population genomics summary statistic genome-wide
-Such as Fst, Pi and relatedness statistic.
+Such as Fst, Pi, and relatedness statistics.
 ### Make variant database without missing data
-Select just variants with information present in all individuals. Keep a database 100% complate.
-First call the environment SUMMARY
+Select just variants with information present in all individuals. Keep a database 100% complete.
+First call the environment SUMMARY.
 
 ```
 conda activate SUMMARY
@@ -308,7 +342,7 @@ Run relatedness on the method of Manichaikul et al., BIOINFORMATICS 2010.
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.vcf --relatedness2
 ```
 ### Create the population map for Fst calculation. 
-Creat a `pop-map-north.txt` and `pop-map-south.txt` file per population listing the sample names. The resulting output file has the suffix ".fst". A window size could be use but use the smalles one because we are going to use the spline window technique in R to visualize the Fst or Pi distribution in a manhattan-like plot.Run the summary statistics Fst calculations. This Fst estimate from Weir and Cockerham’s 1984 paper. This is the preferred calculation of Fst. The provided file must contain a list of individuals - one individual per line - from the VCF file that correspond to one population. This option can be used multiple times to calculate Fst for more than two populations. These files will also be included as "--keep" options. By default, calculations are done on a per-site basis. The output file has the suffix ".weir.fst".
+Create a `pop-map-north.txt` and `pop-map-south.txt` file per population listing the sample names. The resulting output file has the suffix ".fst". Use a small window size to calculate Fst. Use the spline window technique in R to visualize the Fst or Pi distribution in a manhattan-like plot. Run the summary statistics Fst calculations. This Fst estimate is from Weir and Cockerham’s 1984 paper. The preferred calculation of Fst. The provided file must contain a list of individuals per line from the VCF file corresponding to one population. The flag "--keep" can be used to provide a list of samples per population. By default, calculations are on a per-site basis. The output file has the suffix ".weir.fst".
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --weir-fst-pop pop-map-north.txt --weir-fst-pop pop-map-south.txt --fst-window-size 100 --out newH-genolike1-greenjay_AUTOSOMES-NOmissing-100bp
 ```
@@ -317,24 +351,24 @@ With the output you can perform the spline window technique for a Fst genome-wid
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --window-pi-step 10bp --out Pi10bp 
 ```
-### Calculate ts/tv transition & transversion
-With the ts/tv calculation we could see if the genotype went well. Do it for a database 100% complate without missing data
+### Calculate ts/tv 
+With the ts/tv ratio, you can compare substitutions overall between populations, or you could see if the genotype went well if the organism ratio is already known. Calculated with a database 100% complete without missing data
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --TsTv-summary --out TSTV-AUTOSOMES.NOmissing
 ```
 ### Prune SNPs every 10,000kb
-For some analyses is important to select putative unlinked variants. PCA, scan for selection and ancestry proportion analyses needs preferencially a non-linked SNPs data base.
+For some analyses, you will need to select putative unlinked variants. PCA, scan for selection, and ancestry proportion analyses need a non-linked SNPs database.
 ```
 vcftools --vcf newH-genolike1-greenjay_AUTOSOMES.NOmissing.recode.vcf --thin 10000 --recode --recode-INFO-all --out newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
-From the vcf file and with the apropiate variant filter it is possible to create many formats for downstream analysis.
+It is possible to create many formats for downstream analysis from the vcf file and with the appropriate variant filter.
 ### Create plink format for admixture program and others
 ```
 vcftools --vcf newH-genolike2-greenjay_ZW-test.NOmissing.THIN.recode.vcf --plink 
 ```
 ### Creat formats for BayPass
-This program needs a very special database format. We are going to use several steps to get into that format. We need to make population counts per allele and then merge both alleles. First you need to create the .GESTE file for BayPass. It is the same as for the Bayescan.
-We are going to use PGDspider program to format the vcf file to bayescan format. For that we need to create a .spid file for the vcf format to input into the program. Create the .spid file with PGDSpider2-cli, by giving all the arguments without the -spid file. This will results in a spid file template that needs to be edited by answering the questions for the format in the generate file `template_VCF_GESTE_BAYE_SCAN.spid`.
+This program needs a specific database format. We are going to use some simple steps to get into that format. First, you need to create the .GESTE file. It is the same as for the BayeScan. It does population counts per allele, and then we will join both alleles in the same file with all populations.
+We will use the PGDspider program to format the vcf file to GESTE format. For that, we need to create a .spid file for the vcf format to input into the program. Create the .spid by giving all the arguments without the -spid file. The resulted .spid file template needs to be edited by answering questions related to the formats. See file `template_VCF_GESTE_BAYE_SCAN.spid`.
 ```
 PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.GESTE -outputformat GESTE_BAYE_SCAN
 ```
@@ -342,13 +376,13 @@ Run PGDspider again with the new edited .spid file `template_VCF_GESTE_BAYE_SCAN
 ```
 PGDSpider2-cli -inputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.recode.vcf -inputformat VCF -outputfile newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN.GESTE -outputformat GESTE_BAYE_SCAN -spid template_VCF_GESTE_BAYE_SCAN.spid
 ```
-Now we do some bash comands step by step to check one by one we are formating the data correctly
-##### Remove the first lines with info not necesary for the BayPass format
+Now we do some bash commands step by step to check one by one we are formating the data correctly
+##### Remove the first lines with info not necessary for the BayPass format
 ```
 sed -e '1,4d' newH-genolike2-greenjay_ZW-test.NOmissing.THIN.GESTE > test2.GESTE
 ```
 ##### Split files in populations
-We have two populations that are separate in the generated file above, by new lines.
+We have two populations that are separated by new lines.
 ```
 sed '/^$/q' test2.GESTE > test2-pop1.txt
 sed '1,/^$/d' test2.GESTE > test2-pop2.txt
@@ -359,50 +393,50 @@ sed -i '/^$/d' test2-pop2.txt
 sed -i '/^$/d' test2-pop1.txt
 ```
 ##### Concatenate by column files of pop1 and pop2 in columns
-First select just the columns 4 with two alleles info
+First, select just the column 4 with two alleles info
 ```
 cut -f4 test2-pop1.txt > format-test2-pop1.txt
 cut -f4 test2-pop2.txt > format-test2-pop2.txt
 ```
-##### Paste the two populations files by columns and separate by space
+##### Paste the two populations files into columns and separate them by space
 ```
 paste -d '' format-test2-pop1.txt format-test2-pop2.txt > BayPass-format-test-ZW-thin.txt
 ```
-For the final format the frist line with the headers need to be removed
+The first line with the headers needs to be removed for the final format.
 ```
 sed -i '1,1d' BayPass-format-test-ZW-thin.txt
 ```
-Now you have ready the genotype format per population to be use as input for BayPass. Consult the manual of the programs for more details.
+Now you have ready the genotype format per population to be used as input for BayPass. Consult the manual of the programs for more details.
 
 ### Index vcf file
-For some other programs the vcf file needs to be indexed. To do that first need to compress the vcf file and later
+For some other programs the vcf file needs to be indexed. First, we need to compress the vcf file and later index with bcftools.
 ```
 bgzip newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 bcftools index newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN
 ```
 ### Count SNPs per chromosome
-Visalization of this data can be done with R code example `Plot-SNP-per.CHR.R`
+Visualization of this data can be done with R code example `Plot-SNP-per.CHR.R`
 ```
 zcat newH-genolike1-greenjay_AUTOSOMES.NOmissing.THIN | grep -v "^#"  | cut -f 1 | sort | uniq -c > SNP-per-CHR-Nomissing.txt
 ```
 
 ## 5) Exploring data with PCA analysis. 
-We are going to use the SNPrelate R packages for PCA and other analyses. First the vcf file needs to be formated to gds in R. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship and other analyses
+We will use the SNPrelate R packages for PCA and other analyses. First, the vcf file needs to be formated to gds in R. See Job `Job-gdsFormat.sh` and R code/script `PCA-SNPrelate-example.R` to make the gds format and run PCA, kinship, and other analyses
 ## 6) Spline-window technique for genome-wide stats visualization
-It is commonly used in population genomics the window size of 10kb to 100kb to visualize distribution of summary statistics such as Fst. This is helpful to make a manhattan plot and see the genomic reagions where some selective pressures could be operating in the populations. Chosing a window size is quite arbitrary and depends on the density of the data. The spline-window technique uses a statistica value to find bouderies on the data and gives - depending on the data -, a variable window size according to the values of the statistic in use.
+It is commonly used in population genomics with the window size of 10kb-100kb to visualize the distribution of summary statistics such as Fst. This is helpful to make a manhattan plot and see the genomic regions where some selective pressures could be operating in the populations. Choosing a window size i arbitrary and depends on the density of the data. The spline-window technique uses a statistical value to find boundaries on the data. It gives - depending on the data -a variable window size according to the values of the statistic in use.
 #### Calculate window size for each chromosome. 
-Run the spline technique per chromosome/region: after calculatin fst in vcf tools use your *.weir.fst and split it in chromosomes, you can do that on R or on bash. For an R version see first lines on file `GeneWin-example.R`. In bash is also fast, you already have a list file with chromosomes names, used it similar to as above with the bam file but this time is easier you dont need samtools because the file is just a *txt file. Create a new directory GeneWin to save all data for GeneWin analysis
+Run the spline technique per chromosome/region: after calculating fst in vcf tools use your *.weir.fst and split it in chromosomes. You can do that on R or bash. For an R version see first lines on file `GeneWin-example.R`. In bash is also fast, you already have a list file with chromosomes names. Used it similar to as above with the bam file but this time is easier you don't need samtools because the file is just a *txt file. Create a new directory GeneWin to save all data for GeneWin analysis
 ```
 for chr in $(cat unplaced-scaffold.txt); do grep -w $chr 1Kkb.windowed.weir.fst > ./GeneWin/$chr.Kkb.windowed.weir.fst; done
 ```
 #### Plot in a manhattan-like plot Fst genome-wide (all chromosomes). see R code `GeneWin-example.R` and `GeneWin-plots.R`
-For visiualization of the generated windows size you need to create a file for R that indicates the file name of each chromosome and the chromosome number that corresponds to that file. See file `files_MATCH-CHR_example.txt` for example. In this file you need to change in the first column for the complate name of the file for that chromosome. You will need this file to plot with in R with the conde in file `GeneWin-plots.R`. It is a very simple file, create that file in the way you feel more confortable, could be excel or in a terminal.
+For visualization of the generated windows size you need to create a file for R that indicates the file name of each chromosome and the chromosome number that corresponds to that file. See file `files_MATCH-CHR_example.txt` for example. In this file, you need to change the first column for the file's complete name for that chromosome. You will need this file to plot within R with the conde in file `GeneWin-plots.R`. It is a straightforward file; create that file in the way you feel more comfortable. It could be excel or in a terminal.
 
 ## 7) Coalescent inferences of population demography
-PSMC takes the consensus fastq file, and infers the history of population sizes. Starting from mapped reads, the first step is to produce a consensus sequence in FASTQ format. We will use the samtools/bcftools, following the methods described in the paper of Palkopoulou et al., 2015, with defould parametres for model fitting.
+PSMC takes the consensus fastq file, and infers the history of population sizes. The first step starts from mapped reads and is to produce a consensus sequence in FASTQ format. We will use the samtools/bcftools, following the methods described in the paper of Palkopoulou et al., 2015, with default parameters for model fitting.
 
 #### Load version samtools 1.5. 
-Dont use a higher version of samtools. Load the reference genome.
+Don't use a higher version of samtools. Load the reference genome.
 
 ```
 module load intel/17.0.4
@@ -418,8 +452,8 @@ for str in ${CHR[@]}; do
   echo $str
 done
 ```
-#### Produce a consensus sequences per chromosome in one sample
-If you want to run all samples make a loop in a job. See job example `Job-all-mpileup.sh`
+#### Produce a consensus sequence per chromosome in one sample
+If you want to run all samples, make a loop in a job. See job example `Job-all-mpileup.sh`
 ```
 for str in ${CHR[@]}; do
 samtools mpileup -Q 30 -q 20 -u -v \
@@ -433,7 +467,7 @@ All chromosome/scaffold in one fastq per sample
 ```
 cat sample.TGCGAGAC*JAJGSY0*.fq > sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq
 ```
-If one sample works well, try to make another loop to create the concensus sequences per sample with all chromosomes
+If one sample works well, try to make another loop to create the consensus sequences per sample with all chromosomes.
 ```
 mapfile -t samples < samples-barcode.txt
 
@@ -446,7 +480,7 @@ cat sample.$str.*CM0*.fq > sample.$str.aln.sam.sort.bam.ZW.consensus.fq
 done
 ```
 #### Create format for PSMC
-If you want to run all samples make a loop in a job. See job example ``
+If you want to run all samples, make a loop in a job. See job example ``
 ```
 fq2psmcfa sample.TGCGAGAC.aln.sam.sort.bam.UNPLACED.consensus.fq > sample.TGCGAGAC.UNPLACED.consensus.psmcfa
 ```
@@ -459,41 +493,42 @@ psmc -p "4+25*2+4+6" -o sample.TGCGAGAC.UNPLACED.consensus.psmc sample.TGCGAGAC.
 ```
 for
 #### Make the plot
-With the generated data its possible to make your own costume plot using -R flag. We are going to try the plot that comes with PSMC program and generate the data for a costum plot in R using the generated file with extension ".0.txt." See R code/script `PSMC-costum-plot.R` for costum plots of all individuals in one plot.
+With the generated data, its possible to make your costume plot using -R flag. We will try the plot that comes with PSMC program and generate the data for a custom plot in R using the generated file with extension ".0.txt." See R code/script `PSMC-costum-plot.R` for custom plots of all individuals in one plot.
 ```
 psmc_plot.pl -R -u 0.221e-8 -g 1 Green-jay_TGCGAGAC_UNPLACED_plot sample.TGCGAGAC.UNPLACED.consensus.psmc
 ```
 
-## 8) Genome-Evironmental-Association analysis
-Look for regions in the genome that are associated to environmental conditions. Above you have generated the BayPass format file and you also have the covariance environmental matrix file per populations ``
+## 8) Genome-Environmental-Association analysis
+Look for regions in the genome that are associated to environmental conditions. Above you have generated the BayPass format file and you also have the covariance environmental matrix file per population ``
 ### load requirements for ByPass
 ```
 module load gcc/9.1.0
 BayPass=/scratch/08752/ftermig/programs/baypass_2.3/sources
+BayPass=/work2/08752/ftermig/stampede2/apps/baypass_2.3/sources
 ```
-First you need to sacale your variables. This could take 40min hour for 2 chromosomes
+First, you need to scale your variables. This could take 40min hour for 2 chromosomes
 ```
 $BayPass/g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./cov-Bio1-pop.txt -scalecov -outprefix Scale-var-Bio1  
 ```
-Now you need to create a omega file obtained by a first analysis under the core model or the IS covariate mode with your scaled variables
+Now you need to create an omega file obtained by a first analysis under the core model or the IS covariate mode with your scaled variables
 ```
 $BayPass/g_baypass -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -omegafile Scale-var-Bio1_mat_omega.out -outprefix anacoreZW
 ```
-Try to run the core model to compare it with th AUX model and you need to use the omega file generated above
+Try to run the core model to compare it with the AUX model and you need to use the omega file generated above
 ```
-$BayPass/g_baypass -nthreads 40 -npop 2 -gfile ./BayPass-format-test-ZW-thin.txt -efile ./Scale-var-Bio1_covariate.std -covmcmc -omegafile Scale-var-Bio1_mat_omega.out -outprefix anacoveZW
+$BayPass/g_baypass -nthreads 8 -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile Scale-var-Bio1_covariate.std -covmcmc -omegafile Scale-var-Bio1_mat_omega.out -outprefix auxcoveZW
 ```
-The above comands will generate files for the final GEA analysis under model AUX. These are going to be the input for the final Run.
+The above commands will generate files for the final GEA analysis under model AUX. These are going to be the input for the last Run.
 ```
-$BayPass/g_baypass -nthreads 40 -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile cov-Bio1-pop.txt -auxmodel -omegafile Scale-var-Bio1_mat_omega.out -outprefix Aux-var-Bio1
+$BayPass/g_baypass -nthreads 8 -npop 2 -gfile BayPass-format-test-ZW-thin.txt -efile Scale-var-Bio1_covariate.std -auxmodel -omegafile Scale-var-Bio1_mat_omega.out -outprefix Aux-var-Bio1
 ```
-#### Load R scripts to evalute models and plot final results
-To evaluate the models and plot final results you need to use the source R code `baypass_utils.R`. Examples on how to use it are in file `BayPass-PLOTS.R`
+#### Load R scripts to evaluate models and plot final results
+To assess the models and plot final results, you need to use the source R code `baypass_utils.R`. Examples on how to use it are in the file `BayPass-PLOTS.R`
 You can get the variant outliers from the betai.out output by selecting the columns like this
 ```
 less 2anaux1B_summary_betai.out | tr -s '\ '| awk -F ' ' '{print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}'| sort -m | awk '{ if ($6 > 3) {print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}}' > Outliers-Bio1-aux.txt
 ```
-you can be more specific and select outliers with certain BF value > 10 for STRONG STRENGTH SELECTION
+you can be more specific and select outliers with a certain BF value > 10 for STRONG STRENGTH SELECTION
 ```
 less Outliers-Bio1-aux.txt |awk '{ if ($6 > 10) {print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6}}' > Strong-Outliers-Bio1-aux.txt
 ```
@@ -503,32 +538,32 @@ Now you need to track back the exact variant under selection and position by goi
 ### run Bayescan
 Now that you have generated the input for BayeScan, you can run the program to give it a try.
 BayeScan could take a while to run. Run it in a job see example `Job-Bayescan.sh`
-This is an old bayesian method based on the multinomial-Dirichlet model to find diverget selection under the simplest possible scenarios of an island model in which subpopulation allele frequencies (mesured by Fst coefficient) are correlated through a common migrant gene pool from which they differ in varying degrees. This program formulation can consider realistic ecological scenarios where the effective size and the immigration rate may differ among subpopulations. See details in: http://cmpg.unibe.ch/software/BayeScan/index.html. This program can be use as a base line of analyses to explore the data because the format is simple and quite fast.
+This is an old bayesian method based on the multinomial-Dirichlet model. It looks for divergent selection under an island model in which subpopulation allele frequencies (measured by Fst coefficient) are correlated through a common migrant gene pool. This program formulation can consider realistic ecological scenarios where the effective size and the immigration rate may differ among subpopulations. This program can be used as a base line of analyses to explore the data because the format is simple and fast to get. See details in: http://cmpg.unibe.ch/software/BayeScan/index.html.
 
 ```
 module load gcc/9.1.0
 SCAN=/scratch/08752/ftermig/programs/BayeScan2.1/binaries
 $SCAN/BayeScan2.1_linux64bits newH-genolike2-greenjay_ZW-test.NOmissing.THIN.GESTE -n 5000 -nbp 20 -pilot 5000 -burn 50000 -pr_odds 100 -threads 40 -out_freq -od ./BAYESCAN/
 ```
-The fst output can be ploted by using the bayescan R plot function. See examples on how to use it in R code `BayeScan-plot.R`
+The fst output can be plotted by using the bayesian R plot function. See examples on how to use it in R code `BayeScan-plot.R`
 ## 10) Ancestry proportions (population structure)
 ### run ADMIXTURE
-But first you need to creat a .bed file format for that programrun with plink2. Plink and admixture are in your conda environment SUMMARY
+But first you need to creat a .bed file format for that program run with plink2. Plink and admixture are in your conda environment SUMMARY
 ```
 conda activate SUMMARY
 plink2 --vcf newH-genolike2-greenjay_ZW-test.NOmissing.THIN.recode.vcf --geno 0.9 --recode --no-fid --no-parents --no-sex --no-pheno --out newH-genolike2-greenjay_ZW-test.NOmissing.THIN --make-bed --allow-extra-chr 0
 ```
-Now you can run admixture test if works well run more K
+Now you can run admixture test. If it works well run more K
 ```
 admixture newH-genolike2-greenjay_ZW-test.NOmissing.THIN.bed 5
 ```
-Now in a loop to get run more values of K and validations file. You can run this in a slurm job, see job `Job-ADMIXTURE.sh`
+Now in a loop to run more K and validations file values. You can run this in a slurm job, see job `Job-ADMIXTURE.sh`
 ```
 for K in 1 2 3 4 5 6 7 8 9 10; do admixture -B2000 -j40 --cv newH-genolike2-greenjay_ZW-test.NOmissing.THIN.bed $K | tee Bootlog${K}.out; done
 ```
 With the validation file and the proportions of ancestry Q files, you can plot the best K value by cross-validation and a barplot, see R code in `ADMIXTURE-plot.R`
-You need to format you file to make it easy for R to plot, by putting together all K validation files like this:
+You need to format your file to make it easy for R to plot, by putting together all K validation files like this:
 ```
 grep -h CV Bootlog*.out > cross.val.txt
 ```
-Check the `cross.val.txt` for spaces or extra characters that could interfere with R plotting. After that you can use it to plot in R using code `ADMIXTURE-plot.R`
+Check the `cross.val.txt` for spaces or extra characters that could interfere with R plotting. After that, you can use it to plot in R using code `ADMIXTURE-plot.R`
