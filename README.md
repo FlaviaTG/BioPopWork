@@ -15,13 +15,14 @@ The workshop is for practicing how to obtain formats and analyses for fast-and-f
 
 ## Programs:
 
-We will create an environment and will use the module system.
+We will create two conda environments and we will also use the module system.
 
 ### ask for an interactive session in TACC
 ```
 idev -p normal -m 180 -A Keitt-Lab -t 02:00:00 -N 1 -n 68
 ```
 ### Create folders on your $SCRATCH path
+```
 cd $SCRATCH
 mkdir Data
 mkdir Alignment
@@ -30,6 +31,7 @@ mkdir Demography
 mkdir Genotypes
 mkdir ref-genome
 mkdir Selection
+```
 ### Create conda env.
 
 Download miniconda from here
