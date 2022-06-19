@@ -19,7 +19,7 @@ We will create two conda environments and we will also use the module system.
 
 ### ask for an interactive session in TACC
 ```
-idev -p normal -m 180 -A Keitt-Lab -t 02:00:00 -N 1 -n 68
+idev -p normal -m 180 -A Bioinformatics-Works -t 02:00:00 -N 1 -n 68
 ```
 ### Create folders on your $SCRATCH path
 ```
