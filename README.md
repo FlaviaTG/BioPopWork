@@ -55,7 +55,7 @@ conda install -c bioconda samtools openssl=1.0
 conda install -c bioconda/label/cf201901 bcftools 
 conda install -c bioconda picard
 ```
-For vcftools it needed another environment.
+For vcftools we need another environment.
 ```
 conda create --name SUMMARY
 conda activate SUMMARY
