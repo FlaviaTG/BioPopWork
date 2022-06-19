@@ -17,7 +17,7 @@ The workshop is for practicing how to obtain formats and analyses for fast-and-f
 
 We will create two conda environments and we will also use the module system.
 
-### ask for an interactive session in TACC
+### Ask for an interactive session in TACC
 ```
 idev -p normal -m 180 -A Bioinformatics-Works -t 02:00:00 -N 1 -n 68
 ```
