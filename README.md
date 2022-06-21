@@ -169,7 +169,6 @@ install.packages("boa")
 ## Get the files and storage in the appropriate directory just created
 Download reference genome from NCBI by searching for Corvus hawaiiensis genome
 ```
-mkdir $SCRATCH/ref-genome
 cd $SCRATCH/ref-genome
 wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/020/740/725/GCF_020740725.1_bCorHaw1.pri.cur/GCF_020740725.1_bCorHaw1.pri.cur_genomic.fna.gz
 ```
