@@ -82,7 +82,7 @@ cd $SCRATCH/baypass_2.3/sources
 make FC=gfortran
 
 # You could try these commands instead
-# The use of -fno-range-check and other flags are probably hiding bugs
+# The use of '-fno-range-check' and other flags are probably hiding bugs
 gfortran -O2 -fno-range-check -c mt_kind_defs.F90 -o mt_kind_defs.o
 gfortran -O2 -fno-range-check -c mt_stream.F90 -o mt_stream.o
 gfortran -O2 -fno-range-check -c gf2xe.F90 -o gf2xe.o
