@@ -67,12 +67,24 @@ conda install -c bioconda plink2
 ```
 ### Install BayPass from : `http://www1.montpellier.inra.fr/CBGP/software/baypass/`
 ```
+# Use gcc
 module load gcc/9.1.0
-wget http://www1.montpellier.inra.fr/CBGP/software/baypass/files/baypass_2.3.tar.gz
-tar -xvzf baypass_2.3.tar.gz
-cd baypass_2.3
-export INSTALLDIR=$WORK/apps/baypass_2.3/
-make clean all FC=gfortran -C $INSTALLDIR -o0
+
+# Download and extract to SCRATCH
+curl http://www1.montpellier.inra.fr/CBGP/software/baypass/files/baypass_2.3.tar.gz | tar --directory=$SCRATCH -xzf -
+
+# Find the sources
+cd $SCRATCH/baypass_2.3/sources
+
+# Build the source
+# Note the optimizations used by the developers are ill-advised
+make FC=gfortran
+
+# Stash the binary in a convenient location
+mkdir -p $WORK/apps/baypass_2.3
+cp -p g_baypass $WORK/apps/baypass_2.3
+cd $WORK/apps/baypass_2.3
+./g_baypass
 ```
 This installation will generate an executable script. You will need the path of this executable script to call the program. See below the procedure.
 ### Install BayeScan from : `http://cmpg.unibe.ch/software/BayeScan/download.html`
