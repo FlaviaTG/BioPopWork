@@ -142,6 +142,9 @@ Sys.setenv(MAKE = 'make -j8')
 # Don't ask for repo
 options(repo = "https://cloud.r-project.org/")
 
+# To make this permanent use
+# cat('options(repo = "https://cloud.r-project.org/")\n', file = "~/.Rprofile", append = TRUE)
+
 install.packages("BiocManager")
 BiocManager::install("SNPRelate")
 install.packages("tidyverse")
