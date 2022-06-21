@@ -95,6 +95,9 @@ mkdir -p $WORK/apps/baypass_2.3
 cp -p g_baypass $WORK/apps/baypass_2.3
 cd $WORK/apps/baypass_2.3
 ./g_baypass
+
+# Clean up (optional)
+rm -r $SCRATCH/baypass_2.3
 ```
 This installation will generate an executable script. You will need the path of this executable script to call the program. See below the procedure.
 ### Install BayeScan from : `http://cmpg.unibe.ch/software/BayeScan/download.html`
