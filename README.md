@@ -99,12 +99,28 @@ cd $WORK/apps/baypass_2.3
 This installation will generate an executable script. You will need the path of this executable script to call the program. See below the procedure.
 ### Install BayeScan from : `http://cmpg.unibe.ch/software/BayeScan/download.html`
 ```
+# Use gcc
 module load gcc/9.1.0
-cd $WORK/apps/
+
+# Lets build on scratch
+cd $SCRATCH
 wget http://cmpg.unibe.ch/software/BayeScan/files/BayeScan2.1.zip
 unzip BayeScan2.1.zip
-cd BayeScan2.1
+cd BayeScan2.1/source
+
+# Build it
 make
+
+# If the above does not work, type
+g++ -fopenmp -lpthread -o bayescan_2.1 start.o beta.o dirichlet.o RJupdates.o MHupdates.o likelihood.o read_write.o anyoption.o 
+
+# Install
+mkdir -p $WORK/apps/BayeScan2.1
+cp -p bayescan_2.1 $WORK/apps/BayeScan2.1
+
+# Clean up (optional)
+cd $SCRATCH
+rm -r BayeScan2.1.zip BayeScan2.1
 ```
 You will use the binaries files BayeScan2.1_linux64bits in BayeScan2.1/binaries folder
 ### Prepare your R environment
