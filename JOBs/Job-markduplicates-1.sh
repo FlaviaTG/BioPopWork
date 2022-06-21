@@ -8,7 +8,7 @@
 #SBATCH -t 18:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ftermignoni@fas.harvard.edu
 #SBATCH --mail-type=all    # Send email at begin and end of job
-#SBATCH -A Keitt-Lab	   # Allocation name (req'd if you have more than 1)
+#SBATCH -A Bioinformatics-Works	   # Allocation name (req'd if you have more than 1)
 
 export OMP_NUM_THREADS=3    # 68 total OpenMP threads (1 per KNL core)
 
