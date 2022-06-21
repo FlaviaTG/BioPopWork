@@ -36,11 +36,11 @@ mkdir Selection
 
 Download miniconda from here
 ```
-https://docs.conda.io/en/latest/miniconda.html#linux-installers
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 ```
 Follow the instructions, type yes when needed, and enter
 ```
-bash Miniconda3-py39_4.9.2-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
 ```
 Logout and log back in using the ssh command.
 ```
