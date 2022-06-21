@@ -78,14 +78,17 @@ cd $SCRATCH/baypass_2.3/sources
 
 # Build the source
 # Note the optimizations used by the developers are ill-advised
+# This code has a lot of red flags
 make FC=gfortran
+
 # You could try these commands instead
-# gfortran -O2 -c mt_kind_defs.F90 -o mt_kind_defs.o
-# gfortran -O2 -c mt_stream.F90 -o mt_stream.o
-# gfortran -O2 -c gf2xe.F90 -o gf2xe.o
-# gfortran -O2 -c f_jump_coeff.F90 -o f_jump_coeff.o
-# gfortran -O2 -c f_get_coeff.F90 -o f_get_coeff.o
-# gfortran -O2 -fopenmp baypass.f90 mt_stream.o f_get_coeff.o gf2xe.o -o g_baypass
+# The use of -fno-range-check and other flags are probably hiding bugs
+gfortran -O2 -fno-range-check -c mt_kind_defs.F90 -o mt_kind_defs.o
+gfortran -O2 -fno-range-check -c mt_stream.F90 -o mt_stream.o
+gfortran -O2 -fno-range-check -c gf2xe.F90 -o gf2xe.o
+gfortran -O2 -fno-range-check -c f_jump_coeff.F90 -o f_jump_coeff.o
+gfortran -O2 -fno-range-check -c f_get_coeff.F90 -o f_get_coeff.o
+gfortran -O2 -fdefault-real-8 -fdefault-double-8 -ffree-line-length-none -fopenmp    baypass.f90 mt_stream.o f_get_coeff.o gf2xe.o -o g_baypass
 
 # Stash the binary in a convenient location
 mkdir -p $WORK/apps/baypass_2.3
