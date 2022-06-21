@@ -136,9 +136,13 @@ R
 ```
 ### Install all R packages needed
 ```
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+# Compile a little faster (8 cores)
+Sys.setenv(MAKE = 'make -j8')
 
+# Don't ask for repo
+options(repo = "https://cloud.r-project.org/")
+
+install.packages("BiocManager")
 BiocManager::install("SNPRelate")
 install.packages("tidyverse")
 install.packages("ggplot2")
