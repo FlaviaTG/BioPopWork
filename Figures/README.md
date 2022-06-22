@@ -1,2 +1,2 @@
 # Bioinformatic process flowcharts and other figures
-![plot](./biopopwork_seq_flowchart.png)
+![plot](./BioPopWorkshop_SeqQC_Flowchart.drawio.png)
