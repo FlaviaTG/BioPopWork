@@ -194,7 +194,7 @@ In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This 
 ```
 for i in *.fastq.gz; do (fastqc -q -o ./QUALITY-reads $i &);done
 ```
-copy results html into your computer desktop like this example for ne sample.
+Copy results html into your computer desktop like this example for one sample. GO TO YOUR TERMINAL IN YOUR COMPUTER and call the cluster and the pat and the file to be copy on your computer.
 ```
 scp ftermig@stampede2.tacc.utexas.edu:/scratch/08752/ftermig/data/10.CRYO.366249.S20.2_fastqc.html.gz .
 ```
