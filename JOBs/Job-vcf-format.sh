@@ -8,7 +8,7 @@
 #SBATCH -t 4:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ftermignoni@fas.harvard.edu
 #SBATCH --mail-type=all    # Send email at begin and end of job
-#SBATCH -A Keitt-Lab	   # Allocation name (req'd if you have more than 1)
+#SBATCH -A Bioinformatics-Works	   # Allocation name (req'd if you have more than 1)
 
 gtool=/scratch/08752/ftermig/programs/glactools/glactools
 REFPATH=GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna.fai
