@@ -190,9 +190,9 @@ The first step is to check for read quality using Fred scores by running fastqc 
 module load fastqc/0.11.5
 fastqc 01.180603.B03.S1.1.fastq.gz -o ./QUALITY-reads
 ```
-In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This job could take 2 days
+In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This job 15min for all samples
 ```
-for i in *.fastq.gz; do fastqc $i -o ./QUALITY-reads;done
+for i in *.fastq.gz; do (fastqc -q $i -o ./QUALITY-reads &);done
 ```
 ## 1) Alignment
 Example of BWA alignment on one individual. 
