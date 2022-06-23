@@ -228,7 +228,8 @@ for i in *.fastq.gz; do zcat $i | head -n 4 | grep '@'; done
 ### Make your genome path reachable as a variable
 
 ```
-ref=/scratch/08752/ftermig/ref-genome
+# $SCRATCH is another variable in bash, contains path to your specific scratch directory path
+ref=$SCRATCH/ref-genome
 ```
 ### Run the modules or environment
 
