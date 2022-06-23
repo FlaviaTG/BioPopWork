@@ -300,6 +300,7 @@ samtools tview sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
 You can see a specific region, chromosomes CM036346.1. you can look into the index file of the reference to get the name of the chromosomes you would like to look at
 ```
+ln -s  /work2/08752/ftermig/shared_workshop/ref-genome/G* .
 samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
 ### Screen results:
