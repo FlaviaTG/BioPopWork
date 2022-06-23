@@ -496,7 +496,7 @@ Don't use a higher version of samtools. Load the reference genome.
 ```
 module load intel/17.0.4
 module load samtools/1.5
-GB=/scratch/08752/ftermig/ref-genome/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
+GB=$ref/GCA_020740725.1_bCorHaw1.pri.cur_genomic.fna
 ```
 #### Make your list of chromosomes an array
 Check if the array is working by making a small loop into the array
