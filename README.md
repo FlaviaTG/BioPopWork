@@ -190,9 +190,13 @@ The first step is to check for read quality using Fred scores by running fastqc 
 module load fastqc/0.11.5
 fastqc 01.180603.B03.S1.1.fastq.gz -o ./QUALITY-reads
 ```
-In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This job could take 2 days
+In a loop and a slurm job, see bash script for an example `Job-FastqC.sh`. This job 15min for all samples
 ```
-for i in *.fastq.gz; do fastqc $i -o ./QUALITY-reads;done
+for i in *.fastq.gz; do (fastqc -q -o ./QUALITY-reads $i &);done
+```
+Copy results html into your computer desktop like this example for one sample. GO TO YOUR TERMINAL IN YOUR COMPUTER and call the cluster and the pat and the file to be copy on your computer.
+```
+scp ftermig@stampede2.tacc.utexas.edu:/scratch/08752/ftermig/data/10.CRYO.366249.S20.2_fastqc.html.gz .
 ```
 ## 1) Alignment
 Example of BWA alignment on one individual. 
@@ -296,6 +300,7 @@ samtools tview sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
 You can see a specific region, chromosomes CM036346.1. you can look into the index file of the reference to get the name of the chromosomes you would like to look at
 ```
+ln -s  /work2/08752/ftermig/shared_workshop/ref-genome/G* .
 samtools tview -d T -p CM036346.1:300 sample.TGCGAGAC.aln.sam.sort.bam $GB
 ```
 ### Screen results:
