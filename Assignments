@@ -9,3 +9,6 @@ Date, challenges, organism, questions
 06.23.2022
 demography-coal
 pnas.2013798118.pdf
+
+prune vcf files
+convert format for PCA plot using snpgdsVCF and library(gdsfmt)
