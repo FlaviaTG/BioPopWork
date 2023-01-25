@@ -1,0 +1,14 @@
+06.21.2022
+Read papers in ./literature/alignments-filter/
+Date, challenges, organism, questions
+
+06.22.2022
+Read papers in ./literature/genotypes-filter/
+Date, challenges, organism, questions
+
+06.23.2022
+demography-coal
+pnas.2013798118.pdf
+
+prune vcf files
+convert format for PCA plot using snpgdsVCF and library(gdsfmt)
